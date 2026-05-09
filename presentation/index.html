@@ -1,0 +1,1023 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>IoT-23 — Big Data Pipeline for Malware Network Traffic</title>
+<link rel="stylesheet" media="print" href="print.css" />
+<style>
+  @font-face { font-family:"Roobert"; src:url("fonts/Roobert-Light-BF67243fd502239.otf") format("opentype"); font-weight:300; font-style:normal; font-display:block; }
+  @font-face { font-family:"Roobert"; src:url("fonts/Roobert-Regular-BF67243fd53fdf2.otf") format("opentype"); font-weight:400; font-style:normal; font-display:block; }
+  @font-face { font-family:"Roobert"; src:url("fonts/Roobert-Medium-BF67243fd53e059.otf") format("opentype"); font-weight:500; font-style:normal; font-display:block; }
+  @font-face { font-family:"Roobert"; src:url("fonts/Roobert-SemiBold-BF67243fd54213d.otf") format("opentype"); font-weight:600; font-style:normal; font-display:block; }
+  @font-face { font-family:"Roobert"; src:url("fonts/Roobert-Bold-BF67243fd540abb.otf") format("opentype"); font-weight:700; font-style:normal; font-display:block; }
+  @font-face { font-family:"Roobert"; src:url("fonts/Roobert-Heavy-BF67243fd53e164.otf") format("opentype"); font-weight:900; font-style:normal; font-display:block; }
+  @font-face { font-family:"RoobertMono"; src:url("fonts/RoobertMono-Regular-BF67243fd29a433.otf") format("opentype"); font-weight:400; font-display:block; }
+  @font-face { font-family:"RoobertMono"; src:url("fonts/RoobertMono-Medium-BF67243fd28915a.otf") format("opentype"); font-weight:500; font-display:block; }
+  @font-face { font-family:"RoobertMono"; src:url("fonts/RoobertMono-Bold-BF67243fd2cfa56.otf") format("opentype"); font-weight:700; font-display:block; }
+
+  :root{
+    --ink:#0a0a0a;
+    --paper:#ffffff;
+    --rule:#0a0a0a;
+    --muted:#6b6b6b;
+    --hair:1px;
+  }
+
+  *{ box-sizing:border-box; margin:0; padding:0; }
+  html,body{ background:#1a1a1a; font-family:"Roobert", sans-serif; color:var(--ink); -webkit-font-smoothing:antialiased; }
+
+  .slide{
+    position:relative;
+    width:1600px; height:900px;
+    background:var(--paper);
+    color:var(--ink);
+    overflow:hidden;
+    page-break-after:always;
+    break-after:page;
+    margin:24px auto;
+    box-shadow:0 30px 60px rgba(0,0,0,.4);
+  }
+  .slide:last-child{ page-break-after:auto; break-after:auto; }
+
+  /* Subtle paper grain */
+  .slide::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image:
+      radial-gradient(rgba(0,0,0,.04) 1px, transparent 1px),
+      radial-gradient(rgba(0,0,0,.022) 1px, transparent 1px);
+    background-size: 3px 3px, 7px 7px;
+    background-position: 0 0, 1px 2px;
+    mix-blend-mode:multiply;
+    pointer-events:none;
+    opacity:.6;
+  }
+
+  /* Frame chrome */
+  .chrome{
+    position:absolute; inset:48px;
+    border-top:var(--hair) solid var(--ink);
+    border-bottom:var(--hair) solid var(--ink);
+    pointer-events:none;
+  }
+  .chrome::before, .chrome::after{
+    content:""; position:absolute; left:0; right:0; height:var(--hair); background:var(--ink);
+  }
+  .chrome::before{ top:34px; }
+  .chrome::after{ bottom:34px; opacity:.3; }
+
+  .crown{
+    position:absolute; top:60px; left:64px; right:64px;
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-family:"RoobertMono"; font-size:13px; letter-spacing:.18em; text-transform:uppercase;
+    color:var(--ink);
+  }
+  .crown .dot{ display:inline-block; width:7px; height:7px; background:var(--ink); border-radius:50%; transform:translateY(-1px); margin:0 10px; }
+  .crown .right{ color:var(--muted); }
+
+  .footer{
+    position:absolute; bottom:60px; left:64px; right:64px;
+    display:flex; justify-content:space-between; align-items:center;
+    font-family:"RoobertMono"; font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+    color:var(--muted);
+  }
+  .footer .pg{ color:var(--ink); font-weight:500; }
+
+  .body{
+    position:absolute; left:64px; right:64px; top:120px; bottom:120px;
+  }
+
+  /* Typography */
+  .display{ font-weight:900; line-height:.86; letter-spacing:-.045em; font-size:200px; }
+  .h1{ font-weight:700; font-size:96px; line-height:.92; letter-spacing:-.035em; }
+  .h2{ font-weight:600; font-size:54px; line-height:1; letter-spacing:-.02em; }
+  .h3{ font-weight:600; font-size:30px; line-height:1.15; letter-spacing:-.005em; }
+  .lead{ font-weight:400; font-size:22px; line-height:1.45; max-width:840px; }
+  .body-text{ font-weight:400; font-size:18px; line-height:1.55; }
+  .small{ font-weight:400; font-size:14px; line-height:1.5; color:var(--muted); }
+  .mono{ font-family:"RoobertMono"; }
+  .upper{ text-transform:uppercase; letter-spacing:.18em; }
+  .ink-invert{ color:var(--paper); }
+
+  .grid{ display:grid; gap:32px; }
+  .col-2{ grid-template-columns:1fr 1fr; }
+  .col-3{ grid-template-columns:repeat(3,1fr); }
+  .col-4{ grid-template-columns:repeat(4,1fr); }
+  .v-end{ align-self:end; }
+
+  hr.rule{ border:0; border-top:1px solid var(--ink); margin:0; }
+
+  .stamp{
+    font-family:"RoobertMono"; font-size:12px; letter-spacing:.2em; text-transform:uppercase;
+    display:inline-block; padding:6px 10px; border:1px solid var(--ink); color:var(--ink);
+  }
+  .stamp.solid{ background:var(--ink); color:var(--paper); }
+
+  .stat .num{ font-weight:900; font-size:108px; line-height:.85; letter-spacing:-.04em; }
+  .stat .lab{ font-family:"RoobertMono"; font-size:12px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); margin-top:14px; }
+
+  ul.list{ list-style:none; padding:0; margin:0; }
+  ul.list li{ padding:14px 0; border-bottom:1px solid rgba(10,10,10,.18); display:flex; gap:18px; align-items:baseline; }
+  ul.list li:last-child{ border-bottom:none; }
+  ul.list li .k{ font-family:"RoobertMono"; font-size:12px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); min-width:64px; }
+  ul.list li .v{ font-size:20px; font-weight:500; line-height:1.3; flex:1; }
+
+  table.tbl{ width:100%; border-collapse:collapse; font-size:18px; }
+  table.tbl th, table.tbl td{ text-align:left; padding:14px 12px; border-bottom:1px solid rgba(10,10,10,.2); }
+  table.tbl th{ font-family:"RoobertMono"; font-weight:500; font-size:11px; letter-spacing:.2em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--ink); }
+  table.tbl td.num, table.tbl th.num{ text-align:right; font-family:"RoobertMono"; }
+  tr.hl td{ background:var(--ink); color:var(--paper); }
+  tr.hl td.num{ color:var(--paper); }
+
+  /* Title slide */
+  .title-slide{ background:var(--paper); }
+  .title-slide .megamark{
+    position:absolute; right:-180px; top:-180px; width:620px; height:620px;
+    border-radius:50%; background:var(--ink);
+  }
+  .title-slide .ring{
+    position:absolute; right:-60px; top:-60px; width:380px; height:380px;
+    border-radius:50%; border:1px solid rgba(255,255,255,.25);
+  }
+  .title-slide .ring2{
+    position:absolute; right:30px; top:30px; width:200px; height:200px;
+    border-radius:50%; border:1px solid rgba(255,255,255,.4);
+  }
+  .title-slide .dot{
+    position:absolute; right:120px; top:120px; width:8px; height:8px; border-radius:50%; background:var(--paper);
+  }
+  .title-slide .meta-bar{
+    position:absolute; left:64px; right:64px; top:64px;
+    display:flex; justify-content:space-between;
+    font-family:"RoobertMono"; font-size:13px; letter-spacing:.2em; text-transform:uppercase;
+    z-index:2;
+  }
+  .title-slide .meta-bar > span:last-child{ color:var(--paper); }
+  .title-slide .title-block{
+    position:absolute; left:64px; right:64px; top:200px;
+    z-index:2;
+  }
+  .title-slide .kicker{
+    font-family:"RoobertMono"; font-size:14px; letter-spacing:.28em; text-transform:uppercase; margin-bottom:28px;
+    display:flex; gap:18px; align-items:center;
+  }
+  .title-slide .kicker .bar{ display:inline-block; width:48px; height:1px; background:var(--ink); }
+  .title-slide h1{
+    font-weight:900; font-size:148px; line-height:.86; letter-spacing:-.045em;
+    max-width:1380px;
+  }
+  .title-slide h1 em{ font-style:normal; font-weight:300; font-family:"Roobert"; letter-spacing:-.02em; }
+  .title-slide .authors{
+    position:absolute; left:64px; bottom:64px; right:64px;
+    display:grid; grid-template-columns:repeat(4,1fr); gap:32px; align-items:flex-end;
+    font-family:"RoobertMono"; font-size:12px; letter-spacing:.16em; text-transform:uppercase;
+  }
+  .title-slide .authors .a{ display:flex; flex-direction:column; gap:6px; }
+  .title-slide .authors .a strong{ font-weight:700; color:var(--ink); font-size:13px; }
+  .title-slide .authors .a span{ color:var(--muted); }
+
+  /* Divider slide */
+  .divider{
+    background:var(--ink); color:var(--paper);
+  }
+  .divider::before{
+    background-image:
+      radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+      radial-gradient(rgba(255,255,255,.03) 1px, transparent 1px);
+  }
+  .divider .crown, .divider .footer{ color:rgba(255,255,255,.7); }
+  .divider .crown .dot{ background:var(--paper); }
+  .divider .footer .pg{ color:var(--paper); }
+  .divider .stamp{ border-color:var(--paper); color:var(--paper); }
+  .divider .chrome{ border-color:rgba(255,255,255,.5); }
+  .divider .chrome::before{ background:rgba(255,255,255,.5); }
+  .divider .chrome::after{ background:rgba(255,255,255,.2); }
+  .divider .phase-num{
+    font-weight:900; font-size:440px; line-height:.82; letter-spacing:-.06em;
+  }
+  .divider .phase-name{
+    font-weight:700; font-size:88px; line-height:.92; letter-spacing:-.03em;
+    margin-top:8px;
+  }
+  .divider .phase-sub{
+    font-family:"RoobertMono"; font-size:16px; letter-spacing:.25em; text-transform:uppercase;
+    color:rgba(255,255,255,.7); margin-top:36px; max-width:840px; line-height:1.6;
+  }
+
+  .tag{ display:inline-block; font-family:"RoobertMono"; font-size:11px; letter-spacing:.22em; text-transform:uppercase; padding:5px 9px; border:1px solid var(--ink); color:var(--ink); margin-right:6px; margin-bottom:6px; }
+
+  /* Image card */
+  .figcard{ background:#fff; border:1px solid var(--ink); padding:14px; }
+  .figcard img{ display:block; width:100%; height:auto; max-height:480px; object-fit:contain; }
+  .figcap{ font-family:"RoobertMono"; font-size:11px; letter-spacing:.18em; text-transform:uppercase; color:var(--muted); margin-top:12px; }
+
+  /* Bar / process */
+  .bar-row{ display:flex; align-items:center; gap:14px; padding:14px 0; border-bottom:1px solid rgba(10,10,10,.18); }
+  .bar-row:last-child{ border-bottom:none; }
+  .bar-row .name{ width:280px; font-weight:600; font-size:16px; }
+  .bar-row .bar{ flex:1; height:18px; background:rgba(10,10,10,.07); position:relative; }
+  .bar-row .bar i{ display:block; height:100%; background:var(--ink); }
+  .bar-row .val{ width:120px; text-align:right; font-family:"RoobertMono"; font-size:14px; }
+
+  /* Process train */
+  .train{ display:grid; grid-template-columns:repeat(4,1fr); gap:0; border:1px solid var(--ink); }
+  .train .step{ padding:22px 18px; border-right:1px solid var(--ink); position:relative; min-height:200px; display:flex; flex-direction:column; justify-content:space-between; }
+  .train .step:last-child{ border-right:none; }
+  .train .step .n{ font-family:"RoobertMono"; font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--muted); }
+  .train .step .t{ font-weight:700; font-size:22px; line-height:1.05; letter-spacing:-.01em; }
+  .train .step .d{ font-size:13px; color:var(--muted); line-height:1.4; }
+  .train .step.active{ background:var(--ink); color:var(--paper); }
+  .train .step.active .n, .train .step.active .d{ color:rgba(255,255,255,.7); }
+
+  /* Quote pull */
+  .pull{ font-weight:300; font-size:54px; line-height:1.06; letter-spacing:-.02em; max-width:1300px; }
+  .pull em{ font-style:normal; font-weight:700; }
+
+  /* Closing slide */
+  .end-mark{ font-weight:900; font-size:380px; line-height:.85; letter-spacing:-.05em; }
+
+  /* Schema box for ER diagram */
+  .schema-box{ border:1px solid var(--ink); padding:18px 20px; background:var(--paper); }
+  .schema-box .title{ font-family:"RoobertMono"; font-size:12px; letter-spacing:.2em; text-transform:uppercase; padding-bottom:10px; border-bottom:1px solid var(--ink); margin-bottom:12px; font-weight:600; }
+  .schema-box .row{ display:flex; justify-content:space-between; padding:5px 0; font-size:13px; font-family:"RoobertMono"; border-bottom:1px dashed rgba(10,10,10,.12); }
+  .schema-box .row:last-child{ border-bottom:none; }
+  .schema-box .row .pk{ color:var(--ink); font-weight:700; }
+  .schema-box .row .type{ color:var(--muted); }
+
+  /* Code-like blocks */
+  .codeblock{ font-family:"RoobertMono"; font-size:13px; line-height:1.65; padding:18px 22px; border:1px solid var(--ink); background:rgba(10,10,10,.03); }
+  .codeblock .c{ color:var(--muted); }
+
+  /* Insight number badge */
+  .insight-no{ font-weight:900; font-size:48px; line-height:1; letter-spacing:-.03em; color:var(--ink); }
+
+  /* Class-share rows */
+  .share-row{ display:grid; grid-template-columns:300px 1fr 100px; gap:14px; align-items:center; padding:10px 0; border-bottom:1px solid rgba(10,10,10,.12); }
+  .share-row:last-child{ border-bottom:none; }
+  .share-row .label{ font-size:15px; font-weight:500; }
+  .share-row .label .mono{ font-family:"RoobertMono"; font-size:11px; color:var(--muted); display:block; margin-top:2px; letter-spacing:.1em; }
+  .share-row .bar{ height:14px; background:rgba(10,10,10,.07); position:relative; }
+  .share-row .bar i{ display:block; height:100%; background:var(--ink); }
+  .share-row .val{ text-align:right; font-family:"RoobertMono"; font-size:13px; }
+</style>
+</head>
+<body>
+
+<!-- ============== 1. TITLE ============== -->
+<section class="slide title-slide">
+  <div class="megamark"></div>
+  <div class="ring"></div>
+  <div class="ring2"></div>
+  <div class="dot"></div>
+
+  <div class="meta-bar">
+    <span>Innopolis University &nbsp;·&nbsp; Big Data &nbsp;·&nbsp; Final Project</span>
+    <span>Team 30 &nbsp;/&nbsp; 2026</span>
+  </div>
+
+  <div class="title-block">
+    <div class="kicker"><span class="bar"></span><span>An End-to-End Big Data Pipeline</span><span class="bar"></span></div>
+    <h1>Detecting<br/><em>IoT&nbsp;Malware</em><br/>at Network Scale.</h1>
+  </div>
+
+  <div class="authors">
+    <div class="a">
+      <span>Data Engineer</span>
+      <strong>Ivan Ilyichev</strong>
+      <span>Pipelines · Automation</span>
+    </div>
+    <div class="a">
+      <span>ML Specialist</span>
+      <strong>Kirill Shumsky</strong>
+      <span>Distributed ML · Spark</span>
+    </div>
+    <div class="a">
+      <span>Data Scientist</span>
+      <strong>Nikita Zagainov</strong>
+      <span>EDA · Dashboards</span>
+    </div>
+    <div class="a">
+      <span>Tester / Tech Writer</span>
+      <strong>Dmitry Tetkin</strong>
+      <span>Documentation · QA</span>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 2. AT A GLANCE ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>00 &nbsp;·&nbsp; Overview <span class="dot"></span> At a glance</span><span class="right">Aposemat IoT-23 · Zeek conn logs</span></div>
+  <div class="footer"><span>IoT Malware Detection · Team 30</span><span class="pg">02 / 19</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="height:100%;">
+      <div style="display:flex; flex-direction:column; justify-content:space-between;">
+        <div>
+          <div class="stamp solid">Brief</div>
+          <h2 class="h1" style="margin-top:24px; font-size:78px;">Can we classify<br/>malicious IoT<br/>network traffic<br/>from raw Zeek<br/>connection logs?</h2>
+        </div>
+        <p class="lead">A Hadoop / Spark pipeline that ingests 25M Zeek records from PostgreSQL, partitions them in Hive, and trains distributed multiclass classifiers for seven malware behaviours.</p>
+      </div>
+
+      <div class="grid" style="grid-template-columns:1fr 1fr; align-content:center; gap:40px;">
+        <div class="stat"><div class="num">25.0M</div><div class="lab">Network connections</div></div>
+        <div class="stat"><div class="num">12</div><div class="lab">IoT capture sources</div></div>
+        <div class="stat"><div class="num">7</div><div class="lab">Malware behaviour classes</div></div>
+        <div class="stat"><div class="num">0.998</div><div class="lab">Random Forest · F1</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 3. PIPELINE MAP ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>00 &nbsp;·&nbsp; Method <span class="dot"></span> Pipeline Map</span><span class="right">Four stages · One main.sh</span></div>
+  <div class="footer"><span>Methodology</span><span class="pg">03 / 19</span></div>
+
+  <div class="body">
+    <div style="margin-bottom:34px;">
+      <div class="stamp">Stages of work</div>
+      <h2 class="h2" style="margin-top:18px;">From CSV to dashboard, in four reproducible stages.</h2>
+    </div>
+
+    <div class="train">
+      <div class="step"><div><div class="n">Stage 01</div><div class="t" style="margin-top:10px;">Ingestion</div></div><div class="d">PostgreSQL on Citus + Sqoop import to HDFS as Parquet/Snappy.</div></div>
+      <div class="step"><div><div class="n">Stage 02</div><div class="t" style="margin-top:10px;">Storage &amp;<br/>EDA</div></div><div class="d">Hive partitioned + bucketed tables. Seven Tez/HiveQL insights.</div></div>
+      <div class="step"><div><div class="n">Stage 03</div><div class="t" style="margin-top:10px;">Predictive<br/>Analytics</div></div><div class="d">Spark ML pipeline — RF and Multinomial LR with grid-search CV.</div></div>
+      <div class="step active"><div><div class="n ink-invert">Stage 04</div><div class="t" style="margin-top:10px;">Dashboard</div></div><div class="d">Apache Superset — data characteristics, EDA insights, model results.</div></div>
+    </div>
+
+    <div class="grid col-3" style="margin-top:48px;">
+      <div>
+        <div class="small upper mono">Cluster</div>
+        <p class="body-text" style="margin-top:8px;">Innopolis Hadoop · 3 nodes · YARN · Hive + Tez · Spark on YARN.</p>
+      </div>
+      <div>
+        <div class="small upper mono">Stack</div>
+        <p class="body-text" style="margin-top:8px;">Python 3 · PySpark · Sqoop · Beeline · psycopg2 · Apache Superset.</p>
+      </div>
+      <div>
+        <div class="small upper mono">Reproducibility</div>
+        <p class="body-text" style="margin-top:8px;">Single entry point <span class="mono">main.sh</span> — every stage is idempotent and re-runnable.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 4. STAGE 1 DIVIDER ============== -->
+<section class="slide divider">
+  <div class="chrome"></div>
+  <div class="crown"><span>Stage <span class="dot"></span> Ingestion</span><span class="right">Stage / 1.0</span></div>
+  <div class="footer"><span>From raw Zeek CSV to a partitioned HDFS warehouse</span><span class="pg">04 / 19</span></div>
+  <div class="body" style="display:flex; flex-direction:column; justify-content:flex-end;">
+    <div class="phase-num">01</div>
+    <div class="phase-name">Data Collection<br/>&amp; Ingestion.</div>
+    <div class="phase-sub">12 capture files. Two relational tables. One Sqoop import. Parquet on HDFS, Snappy-compressed, ready for Hive.</div>
+  </div>
+</section>
+
+<!-- ============== 5. STAGE 1 — DATASET ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>01 &nbsp;·&nbsp; Dataset <span class="dot"></span> Aposemat IoT-23</span><span class="right">Stratosphere Lab · CTU</span></div>
+  <div class="footer"><span>Stage 01 · Data Collection &amp; Ingestion</span><span class="pg">05 / 19</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="height:100%; gap:64px;">
+      <div>
+        <div class="stamp">Source</div>
+        <h2 class="h2" style="margin-top:22px; max-width:540px;">Real IoT-device captures from the Aposemat IoT-23 corpus.</h2>
+        <p class="lead" style="margin-top:24px;">12 selected captures of <em>Mirai, Hide-and-Seek, Hakai, Torii, Trojan, Okiru, Kenjiro</em> and benign baselines &mdash; converted to Zeek <span class="mono">conn.log</span> format with binary &amp; multi-class malware labels.</p>
+
+        <div style="margin-top:36px;">
+          <div class="small upper mono">Volume &amp; shape</div>
+          <ul class="list" style="margin-top:8px;">
+            <li><span class="k">Rows</span><span class="v"><span class="mono">25,011,247</span> network connections</span></li>
+            <li><span class="k">Captures</span><span class="v">12 distinct IoT-device traces</span></li>
+            <li><span class="k">Features</span><span class="v">23 per-connection Zeek fields</span></li>
+            <li><span class="k">Target</span><span class="v">7-way <span class="mono">label</span> (Benign + 6 attack types)</span></li>
+          </ul>
+        </div>
+      </div>
+
+      <div>
+        <div class="stamp">1.1 Relational schema</div>
+        <h2 class="h3" style="margin-top:18px;">Two tables, one foreign key.</h2>
+
+        <div class="grid col-2" style="margin-top:22px; gap:18px;">
+          <div class="schema-box">
+            <div class="title">captures</div>
+            <div class="row"><span class="pk">capture_id <span class="type">int (PK)</span></span></div>
+            <div class="row"><span>capture_name <span class="type">varchar(128)</span></span></div>
+            <div class="row"><span>source_file <span class="type">varchar(255)</span></span></div>
+            <div class="row"><span>created_at <span class="type">timestamptz</span></span></div>
+          </div>
+          <div class="schema-box">
+            <div class="title">network_connections</div>
+            <div class="row"><span class="pk">connection_id <span class="type">bigint</span></span></div>
+            <div class="row"><span>capture_id <span class="type">int (FK)</span></span></div>
+            <div class="row"><span>ts <span class="type">timestamptz</span></span></div>
+            <div class="row"><span>id_orig_h / id_resp_h <span class="type">inet</span></span></div>
+            <div class="row"><span>proto · service · conn_state <span class="type">varchar</span></span></div>
+            <div class="row"><span>orig_bytes / resp_bytes <span class="type">bigint</span></span></div>
+            <div class="row"><span>orig_pkts / resp_pkts <span class="type">bigint</span></span></div>
+            <div class="row"><span>history · duration · ports <span class="type">…</span></span></div>
+            <div class="row"><span>label · detailed_label <span class="type">varchar</span></span></div>
+          </div>
+        </div>
+
+        <p class="small" style="margin-top:18px;">Stage table <span class="mono">stg_network_connections</span> ingests raw text via <span class="mono">COPY</span>; type casts (<span class="mono">inet</span>, <span class="mono">to_timestamp</span>, regex-cleaned ints) happen in the SQL transform.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 6. STAGE 1 — INGEST PIPELINE ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>01 &nbsp;·&nbsp; Ingestion <span class="dot"></span> CSV → PostgreSQL → HDFS</span><span class="right">build_projectdb.py + Sqoop</span></div>
+  <div class="footer"><span>Stage 01 · Data Collection &amp; Ingestion</span><span class="pg">06 / 19</span></div>
+
+  <div class="body">
+    <div class="stamp">1.2 Ingest pipeline</div>
+    <h2 class="h2" style="margin-top:18px;">Four steps. One reproducible load.</h2>
+
+    <div class="train" style="margin-top:36px;">
+      <div class="step"><div><div class="n">Step 01</div><div class="t" style="margin-top:8px;">Collect</div></div><div class="d"><span class="mono">gdown</span> pulls 12 capture CSVs from Google Drive into <span class="mono">data/</span>.</div></div>
+      <div class="step"><div><div class="n">Step 02</div><div class="t" style="margin-top:8px;">Load</div></div><div class="d"><span class="mono">COPY</span> into staging, then transformed insert into typed Citus tables.</div></div>
+      <div class="step"><div><div class="n">Step 03</div><div class="t" style="margin-top:8px;">Validate</div></div><div class="d">7 SQL assertions on row counts, label coverage and FK integrity.</div></div>
+      <div class="step"><div><div class="n">Step 04</div><div class="t" style="margin-top:8px;">Sqoop</div></div><div class="d">Both tables exported to HDFS as Parquet + Snappy via single-mapper queries.</div></div>
+    </div>
+
+    <div class="grid col-2" style="margin-top:48px; gap:48px;">
+      <div>
+        <div class="stamp">1.3 Storage benchmark</div>
+        <h2 class="h3" style="margin-top:14px;">We compared four format / codec pairs.</h2>
+        <table class="tbl" style="margin-top:18px;">
+          <thead><tr><th>Format</th><th>Codec</th><th class="num">Write (s)</th><th class="num">Scan (s)</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td class="mono">parquet</td><td class="mono">snappy</td><td class="num">17.7</td><td class="num">6.76</td></tr>
+            <tr><td class="mono">parquet</td><td class="mono">gzip</td><td class="num">18.0</td><td class="num">6.64</td></tr>
+            <tr><td class="mono">avro</td><td class="mono">snappy</td><td class="num">17.0</td><td class="num">9.32</td></tr>
+            <tr><td class="mono">avro</td><td class="mono">bzip2</td><td class="num">19.0</td><td class="num">8.36</td></tr>
+          </tbody>
+        </table>
+        <p class="small" style="margin-top:14px;">Parquet + Snappy chosen — best scan/throughput trade.</p>
+      </div>
+      <div>
+        <div class="stamp">1.4 Sqoop command (excerpt)</div>
+        <div class="codeblock" style="margin-top:14px;">
+          <span class="c"># network_connections → HDFS</span><br/>
+          sqoop import \<br/>
+          &nbsp;&nbsp;--connect jdbc:postgresql://hadoop-04/team30_projectdb \<br/>
+          &nbsp;&nbsp;--compression-codec snappy --compress \<br/>
+          &nbsp;&nbsp;--as-parquetfile \<br/>
+          &nbsp;&nbsp;--target-dir /user/team30/project/<br/>
+          &nbsp;&nbsp;&nbsp;&nbsp;warehouse/network_connections \<br/>
+          &nbsp;&nbsp;--m 1 \<br/>
+          &nbsp;&nbsp;--query "SELECT … FROM<br/>
+          &nbsp;&nbsp;&nbsp;&nbsp;network_connections WHERE \$CONDITIONS"
+        </div>
+        <p class="small" style="margin-top:14px;">Single mapper avoids skew on the auto-incremented PK; UTC-formatted timestamps survive the round-trip.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 7. STAGE 2 DIVIDER ============== -->
+<section class="slide divider">
+  <div class="chrome"></div>
+  <div class="crown"><span>Stage <span class="dot"></span> Storage &amp; EDA</span><span class="right">Stage / 2.0</span></div>
+  <div class="footer"><span>Hive partitioning, bucketing, and seven HiveQL insights</span><span class="pg">07 / 19</span></div>
+  <div class="body" style="display:flex; flex-direction:column; justify-content:flex-end;">
+    <div class="phase-num">02</div>
+    <div class="phase-name">Storage<br/>&amp; EDA.</div>
+    <div class="phase-sub">External Parquet → bucketed captures + label-partitioned connections. Seven HiveQL queries run on Tez; results materialised as Parquet result tables.</div>
+  </div>
+</section>
+
+<!-- ============== 8. STAGE 2 — HIVE WAREHOUSE ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>02 &nbsp;·&nbsp; Storage <span class="dot"></span> Hive warehouse</span><span class="right">team30_projectdb</span></div>
+  <div class="footer"><span>Stage 02 · Storage &amp; Preparation</span><span class="pg">08 / 19</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="height:100%; gap:64px;">
+      <div>
+        <div class="stamp">2.1 Optimised tables</div>
+        <h2 class="h2" style="margin-top:22px; max-width:540px;">Two physical layouts &mdash; one for joins, one for label scans.</h2>
+        <ul class="list" style="margin-top:24px;">
+          <li><span class="k">EXT</span><span class="v"><span class="mono">captures_ext</span> &amp; <span class="mono">network_connections_ext</span> over Sqoop output.</span></li>
+          <li><span class="k">BUC</span><span class="v"><span class="mono">captures_bucketed</span> &mdash; CLUSTERED BY (capture_id) INTO 4 BUCKETS.</span></li>
+          <li><span class="k">PART</span><span class="v"><span class="mono">network_connections_part</span> &mdash; PARTITIONED BY (label).</span></li>
+          <li><span class="k">FMT</span><span class="v">All managed tables stored as PARQUET on HDFS.</span></li>
+        </ul>
+        <div style="margin-top:30px; padding:18px 22px; border:1px solid var(--ink); display:flex; gap:24px; align-items:center;">
+          <span class="stamp solid">Why</span>
+          <p class="body-text" style="margin:0;">Label is the dominant filter in EDA &amp; ML &mdash; partitioning by it lets every analytic query prune to a fraction of the data.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="stamp">2.2 Engine &amp; settings</div>
+        <h2 class="h3" style="margin-top:18px;">HiveQL on Tez with dynamic partitioning.</h2>
+        <div class="codeblock" style="margin-top:18px;">
+          SET hive.execution.engine=tez;<br/>
+          SET hive.exec.dynamic.partition=true;<br/>
+          SET hive.exec.dynamic.partition.mode=nonstrict;<br/>
+          SET hive.enforce.bucketing=true;<br/>
+          <br/>
+          <span class="c">-- bucketed insert</span><br/>
+          INSERT OVERWRITE TABLE captures_bucketed<br/>
+          SELECT capture_id, capture_name, source_file,<br/>
+          &nbsp;&nbsp;CAST(created_at AS TIMESTAMP)<br/>
+          FROM captures_ext;<br/>
+          <br/>
+          <span class="c">-- partitioned insert (label dynamic)</span><br/>
+          INSERT OVERWRITE TABLE network_connections_part<br/>
+          PARTITION (label) SELECT … , label<br/>
+          FROM network_connections_ext;
+        </div>
+        <p class="small" style="margin-top:18px;">7 EDA queries materialise <span class="mono">qN_results</span> Parquet tables and stream CSV exports through Beeline for the dashboard.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 9. STAGE 2 — INSIGHT 1 (label distribution) ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>02 &nbsp;·&nbsp; EDA <span class="dot"></span> Insight 01 — Label distribution</span><span class="right">q1.hql</span></div>
+  <div class="footer"><span>Stage 02 · Insight 1 of 7</span><span class="pg">09 / 19</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="height:100%; gap:56px;">
+      <div>
+        <div style="display:flex; gap:18px; align-items:baseline;">
+          <span class="insight-no">01</span>
+          <div class="stamp">A skewed but rich target</div>
+        </div>
+        <h2 class="h2" style="margin-top:18px;">Benign and Malicious dominate &mdash; six rare attack types remain useful.</h2>
+        <p class="lead" style="margin-top:18px;">The corpus is neither balanced nor degenerate: 35% benign, 28% generic Malicious, 23% DDoS, 14% port-scan, plus three rare classes that the multiclass models still need to handle.</p>
+
+        <div style="margin-top:32px;">
+          <div class="share-row"><div class="label">Benign<span class="mono">label = "Benign"</span></div><div class="bar"><i style="width:100%"></i></div><div class="val">35.11%</div></div>
+          <div class="share-row"><div class="label">Malicious<span class="mono">label = "Malicious"</span></div><div class="bar"><i style="width:80.4%"></i></div><div class="val">28.21%</div></div>
+          <div class="share-row"><div class="label">DDoS<span class="mono">label = "Malicious DDoS"</span></div><div class="bar"><i style="width:65.8%"></i></div><div class="val">23.10%</div></div>
+          <div class="share-row"><div class="label">Port scan<span class="mono">PartOfAHorizontalPortScan</span></div><div class="bar"><i style="width:38.6%"></i></div><div class="val">13.54%</div></div>
+          <div class="share-row"><div class="label">C&amp;C / Attack / FileDownload<span class="mono">3 rare classes combined</span></div><div class="bar"><i style="width:1.3%"></i></div><div class="val">0.05%</div></div>
+        </div>
+      </div>
+
+      <div class="figcard" style="align-self:center;">
+        <img src="img/q1.jpg" alt="Distribution of labels"/>
+        <div class="figcap">Fig. 01 &nbsp;·&nbsp; Class share of <span class="mono">network_connections_part</span>. The long tail of rare attack types is the key reason the project is treated as multiclass, not binary.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 10. STAGE 2 — INSIGHT 2 + 5 (proto + conn_state) ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>02 &nbsp;·&nbsp; EDA <span class="dot"></span> Insights 02 &amp; 05 — Protocol + state</span><span class="right">q2.hql, q5.hql</span></div>
+  <div class="footer"><span>Stage 02 · Insights 2 + 5</span><span class="pg">10 / 19</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="height:100%; gap:48px;">
+      <div>
+        <div style="display:flex; gap:18px; align-items:baseline;">
+          <span class="insight-no">02</span>
+          <div class="stamp">Almost everything is TCP</div>
+        </div>
+        <h2 class="h3" style="margin-top:14px;">Protocol mix per label.</h2>
+
+        <div class="figcard" style="margin-top:14px;">
+          <img src="img/q2.jpg" alt="Protocol usage per label"/>
+          <div class="figcap">Fig. 02 &nbsp;·&nbsp; UDP appears almost only for Benign DNS and ICMP-only flows; nearly every malicious connection is TCP.</div>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex; gap:18px; align-items:baseline;">
+          <span class="insight-no">05</span>
+          <div class="stamp">Failed handshakes everywhere</div>
+        </div>
+        <h2 class="h3" style="margin-top:14px;">Connection state per label.</h2>
+
+        <table class="tbl" style="margin-top:14px;">
+          <thead><tr><th>Label</th><th>Dominant <span class="mono">conn_state</span></th><th class="num">Share</th></tr></thead>
+          <tbody>
+            <tr><td>Benign</td><td class="mono">S0 (no reply)</td><td class="num">99.3%</td></tr>
+            <tr class="hl"><td>Malicious</td><td class="mono">S0</td><td class="num">99.7%</td></tr>
+            <tr><td>Malicious DDoS</td><td class="mono">OTH / RSTOS0</td><td class="num">99.99%</td></tr>
+            <tr><td>Malicious C&amp;C</td><td class="mono">S0 + S3</td><td class="num">88%</td></tr>
+            <tr><td>Port scan</td><td class="mono">S0</td><td class="num">100%</td></tr>
+          </tbody>
+        </table>
+        <p class="small" style="margin-top:14px;">A SYN-only flood (<span class="mono">S0</span>) is the universal signature &mdash; benign traffic on this network is dominated by IoT devices repeatedly failing to reach a server.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 11. STAGE 2 — INSIGHT 3 + 7 (bytes + packets) ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>02 &nbsp;·&nbsp; EDA <span class="dot"></span> Insights 03 &amp; 07 — Bytes &amp; packets</span><span class="right">q3.hql, q7.hql</span></div>
+  <div class="footer"><span>Stage 02 · Insights 3 + 7</span><span class="pg">11 / 19</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="height:100%; gap:48px;">
+      <div>
+        <div style="display:flex; gap:18px; align-items:baseline;">
+          <span class="insight-no">03</span>
+          <div class="stamp">Volumetric attacks vs. silent scans</div>
+        </div>
+        <h2 class="h3" style="margin-top:14px;">Average bytes per connection by label.</h2>
+
+        <div class="figcard" style="margin-top:14px;">
+          <img src="img/q3.jpg" alt="Average bytes per label"/>
+          <div class="figcap">Fig. 03 &nbsp;·&nbsp; DDoS averages ≈ <span class="mono">3.7×10⁸</span> orig bytes / flow &mdash; six orders of magnitude over benign. Port-scan and generic Malicious carry &lt; 1B per connection on average.</div>
+        </div>
+      </div>
+
+      <div>
+        <div style="display:flex; gap:18px; align-items:baseline;">
+          <span class="insight-no">07</span>
+          <div class="stamp">Packet-rate signatures</div>
+        </div>
+        <h2 class="h3" style="margin-top:14px;">Average packets per connection.</h2>
+
+        <table class="tbl" style="margin-top:14px;">
+          <thead><tr><th>Label</th><th class="num">Avg orig pkts</th><th class="num">Avg resp pkts</th></tr></thead>
+          <tbody>
+            <tr><td>Benign</td><td class="num">3.90</td><td class="num">0.006</td></tr>
+            <tr><td>Malicious</td><td class="num">1.10</td><td class="num">0.033</td></tr>
+            <tr class="hl"><td>Malicious DDoS</td><td class="num">48.10</td><td class="num">0.0004</td></tr>
+            <tr><td>C&amp;C</td><td class="num">495.4</td><td class="num">8.15</td></tr>
+            <tr><td>Attack</td><td class="num">5.34</td><td class="num">3.40</td></tr>
+            <tr><td>Port scan</td><td class="num">4.00</td><td class="num">0.00</td></tr>
+          </tbody>
+        </table>
+        <p class="small" style="margin-top:14px;">Long-lived C&amp;C sessions stand out: ~500 pkts out, with a real (8 pkt) reply &mdash; very different from one-shot scan or flood traffic.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 12. STAGE 2 — INSIGHT 4 (per capture) ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>02 &nbsp;·&nbsp; EDA <span class="dot"></span> Insight 04 — Per-capture maliciousness</span><span class="right">q4.hql</span></div>
+  <div class="footer"><span>Stage 02 · Insight 4</span><span class="pg">12 / 19</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="height:100%; gap:56px;">
+      <div>
+        <div style="display:flex; gap:18px; align-items:baseline;">
+          <span class="insight-no">04</span>
+          <div class="stamp">Captures cluster bimodally</div>
+        </div>
+        <h2 class="h2" style="margin-top:18px;">Almost all malicious or almost all benign &mdash; nothing in between.</h2>
+        <p class="lead" style="margin-top:18px;">8 of the 12 captures are &gt; 79% malicious; 4 captures are &lt; 11% malicious. There is no middle ground &mdash; each PCAP was deliberately recorded around a single behaviour.</p>
+
+        <table class="tbl" style="margin-top:24px;">
+          <thead><tr><th>Capture</th><th class="num">Total flows</th><th class="num">Malicious ratio</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td class="mono">Capture-60</td><td class="num">3,581,028</td><td class="num">99.9%</td></tr>
+            <tr><td class="mono">Capture-9</td><td class="num">6,378,293</td><td class="num">99.6%</td></tr>
+            <tr><td class="mono">Capture-48</td><td class="num">3,394,338</td><td class="num">99.9%</td></tr>
+            <tr><td class="mono">Capture-3</td><td class="num">156,103</td><td class="num">97.1%</td></tr>
+            <tr><td class="mono">Capture-1</td><td class="num">1,008,748</td><td class="num">53.5%</td></tr>
+            <tr><td class="mono">Capture-44</td><td class="num">237</td><td class="num">11.0%</td></tr>
+            <tr><td class="mono">Capture-20 / 21 / 42</td><td class="num">~3,500 each</td><td class="num">&lt;1%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="figcard" style="align-self:center;">
+        <img src="img/q4.jpg" alt="Maliciousness per capture"/>
+        <div class="figcap">Fig. 04 &nbsp;·&nbsp; Treat captures as <em>strata</em>, not interchangeable rows &mdash; randomly splitting at the row level can leak whole devices into both train and test.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 13. STAGE 2 — INSIGHT 6 (target ports) ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>02 &nbsp;·&nbsp; EDA <span class="dot"></span> Insight 06 — Target ports</span><span class="right">q6.hql</span></div>
+  <div class="footer"><span>Stage 02 · Insight 6</span><span class="pg">13 / 19</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="height:100%; gap:56px;">
+      <div>
+        <div style="display:flex; gap:18px; align-items:baseline;">
+          <span class="insight-no">06</span>
+          <div class="stamp">Telnet is still the wound</div>
+        </div>
+        <h2 class="h2" style="margin-top:18px;">Port 23 is the single most attacked destination.</h2>
+        <p class="lead" style="margin-top:18px;">Generic Malicious traffic (4M flows) and the entire port-scan class (3.4M flows) target Telnet (<span class="mono">tcp/23</span>) &mdash; the classic Mirai-family entry point. DDoS is bimodal between <span class="mono">62336</span> (Mirai-style C&amp;C echo) and HTTP <span class="mono">80</span>.</p>
+
+        <table class="tbl" style="margin-top:24px;">
+          <thead><tr><th>Label</th><th class="num">Port</th><th class="num">Flows</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td>Malicious</td><td class="num mono">23</td><td class="num">4,055,327</td></tr>
+            <tr><td>DDoS</td><td class="num mono">62336</td><td class="num">3,578,391</td></tr>
+            <tr><td>Port scan</td><td class="num mono">23</td><td class="num">3,386,119</td></tr>
+            <tr><td>Malicious</td><td class="num mono">81</td><td class="num">2,571,979</td></tr>
+            <tr><td>DDoS</td><td class="num mono">80</td><td class="num">1,125,806</td></tr>
+            <tr><td>DDoS</td><td class="num mono">992</td><td class="num">1,008,351</td></tr>
+            <tr><td>C&amp;C</td><td class="num mono">6667</td><td class="num">6,706</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="figcard" style="align-self:center;">
+        <img src="img/q6.jpg" alt="Top targeted ports per non-Benign label"/>
+        <div class="figcap">Fig. 06 &nbsp;·&nbsp; Target-port histograms per non-Benign label. Port 23 dominance is a strong, learnable signal &mdash; it is one of the highest-importance features in the trained Random Forest.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 14. STAGE 3 DIVIDER ============== -->
+<section class="slide divider">
+  <div class="chrome"></div>
+  <div class="crown"><span>Stage <span class="dot"></span> Predictive Analytics</span><span class="right">Stage / 3.0</span></div>
+  <div class="footer"><span>Spark MLlib · Random Forest vs. Logistic Regression</span><span class="pg">14 / 19</span></div>
+  <div class="body" style="display:flex; flex-direction:column; justify-content:flex-end;">
+    <div class="phase-num">03</div>
+    <div class="phase-name">Predictive<br/>Analytics.</div>
+    <div class="phase-sub">A 7-class supervised problem on 25M rows. Cyclical time encoding, ChiSq feature selection, two cross-validated models &mdash; all distributed on YARN.</div>
+  </div>
+</section>
+
+<!-- ============== 15. STAGE 3 — FEATURE PIPELINE ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>03 &nbsp;·&nbsp; ML <span class="dot"></span> Spark feature pipeline</span><span class="right">PySpark · pyspark.ml.Pipeline</span></div>
+  <div class="footer"><span>Stage 03 · Feature engineering</span><span class="pg">15 / 19</span></div>
+
+  <div class="body">
+    <div class="stamp">3.1 Pipeline</div>
+    <h2 class="h2" style="margin-top:18px;">From raw Hive rows to a single scaled feature vector.</h2>
+
+    <div class="train" style="margin-top:36px; grid-template-columns:repeat(5,1fr);">
+      <div class="step"><div><div class="n">Step 01</div><div class="t" style="margin-top:8px;">Time encode</div></div><div class="d">Custom <span class="mono">CyclicalTimeTransformer</span> &mdash; sin/cos for month, day, hour, minute, second.</div></div>
+      <div class="step"><div><div class="n">Step 02</div><div class="t" style="margin-top:8px;">Impute</div></div><div class="d">Fill nulls per dtype: "unknown" for strings, 0/false for numerics, drop <span class="mono">tunnel_parents</span>.</div></div>
+      <div class="step"><div><div class="n">Step 03</div><div class="t" style="margin-top:8px;">One-hot</div></div><div class="d"><span class="mono">StringIndexer + OneHotEncoder</span> for proto, service, conn_state, history.</div></div>
+      <div class="step"><div><div class="n">Step 04</div><div class="t" style="margin-top:8px;">Select</div></div><div class="d"><span class="mono">ChiSqSelector(fpr=0.1)</span> over categorical block — keeps only label-correlated dummies.</div></div>
+      <div class="step"><div><div class="n">Step 05</div><div class="t" style="margin-top:8px;">Assemble + scale</div></div><div class="d"><span class="mono">VectorAssembler</span> + <span class="mono">StandardScaler</span> → final <span class="mono">features</span> column.</div></div>
+    </div>
+
+    <div class="grid col-3" style="margin-top:48px; gap:48px;">
+      <div>
+        <div class="small upper mono">Numeric features</div>
+        <p class="body-text" style="margin-top:8px;">duration · orig_bytes · resp_bytes · missed_bytes · pkts (orig/resp) · ip_bytes · ports · year · local_orig · local_resp.</p>
+      </div>
+      <div>
+        <div class="small upper mono">Categorical (after ChiSq)</div>
+        <p class="body-text" style="margin-top:8px;">proto · service · conn_state · history &mdash; selected on training fold only to avoid leakage.</p>
+      </div>
+      <div>
+        <div class="small upper mono">Split</div>
+        <p class="body-text" style="margin-top:8px;">60% / 40% random split, seed = 42. Final train/test persisted as Parquet on HDFS for both training and evaluation.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 16. STAGE 3 — MODELS + GRID ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>03 &nbsp;·&nbsp; ML <span class="dot"></span> Models &amp; cross-validation</span><span class="right">CrossValidator · F1 metric</span></div>
+  <div class="footer"><span>Stage 03 · Training</span><span class="pg">16 / 19</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="height:100%; gap:64px;">
+      <div>
+        <div class="stamp">3.2 Two model families</div>
+        <h2 class="h2" style="margin-top:18px;">A non-linear baseline against a linear baseline.</h2>
+
+        <ul class="list" style="margin-top:24px;">
+          <li><span class="k">M1</span><span class="v"><strong>Random Forest</strong> &mdash; numTrees ∈ {30, 60} × maxDepth ∈ {4, 6}. Bagging handles the long tail of rare classes naturally.</span></li>
+          <li><span class="k">M2</span><span class="v"><strong>Multinomial Logistic Regression</strong> &mdash; regParam ∈ {0.01, 0.1} × elasticNet ∈ {0.0, 0.5}, maxIter = 50.</span></li>
+          <li><span class="k">CV</span><span class="v">2-fold cross-validation, parallelism = 3, optimised on multiclass <span class="mono">f1</span>.</span></li>
+        </ul>
+
+        <div style="margin-top:30px; padding:20px 22px; border:1px solid var(--ink); display:flex; gap:24px; align-items:center;">
+          <span class="stamp solid">Cluster</span>
+          <p class="body-text" style="margin:0;">Each <span class="mono">spark-submit</span>: 6 executors × 3 cores × 6 GB on YARN. Train data <span class="mono">.persist(MEMORY_AND_DISK)</span> to amortise CV folds.</p>
+        </div>
+      </div>
+
+      <div>
+        <div class="stamp">3.3 Best Random Forest</div>
+        <h2 class="h3" style="margin-top:14px;">Hyperparameters chosen by CV.</h2>
+        <table class="tbl" style="margin-top:18px;">
+          <thead><tr><th>Hyperparameter</th><th>Best value</th></tr></thead>
+          <tbody>
+            <tr><td>numTrees</td><td class="mono">60</td></tr>
+            <tr><td>maxDepth</td><td class="mono">6</td></tr>
+            <tr><td>impurity</td><td class="mono">gini</td></tr>
+            <tr><td>featureSubsetStrategy</td><td class="mono">auto</td></tr>
+          </tbody>
+        </table>
+
+        <div class="stamp" style="margin-top:32px;">3.4 Best Logistic Regression</div>
+        <table class="tbl" style="margin-top:14px;">
+          <thead><tr><th>Hyperparameter</th><th>Best value</th></tr></thead>
+          <tbody>
+            <tr><td>regParam</td><td class="mono">0.01</td></tr>
+            <tr><td>elasticNetParam</td><td class="mono">0.0</td></tr>
+            <tr><td>family</td><td class="mono">multinomial</td></tr>
+            <tr><td>maxIter</td><td class="mono">50</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 17. STAGE 3 — EVALUATION ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>03 &nbsp;·&nbsp; ML <span class="dot"></span> Held-out evaluation</span><span class="right">10M test rows · MulticlassClassificationEvaluator</span></div>
+  <div class="footer"><span>Stage 03 · Evaluation</span><span class="pg">17 / 19</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="gap:64px; height:100%;">
+      <div>
+        <div class="stamp">3.5 Comparison</div>
+        <h2 class="h2" style="margin-top:18px;">Random Forest dominates on every metric.</h2>
+        <p class="lead" style="margin-top:18px;">Bagging captures non-linear thresholds in <span class="mono">orig_pkts</span>, <span class="mono">id_resp_p</span> and <span class="mono">conn_state</span> &mdash; signals the multinomial linear model cannot fit at this granularity.</p>
+
+        <table class="tbl" style="margin-top:32px;">
+          <thead><tr><th>Model</th><th class="num">Accuracy</th><th class="num">Precision</th><th class="num">Recall</th><th class="num">F1</th></tr></thead>
+          <tbody>
+            <tr class="hl"><td>Random Forest</td><td class="num">0.9979</td><td class="num">0.9979</td><td class="num">0.9979</td><td class="num">0.9978</td></tr>
+            <tr><td>Logistic Regression</td><td class="num">0.3510</td><td class="num">0.3395</td><td class="num">0.3510</td><td class="num">0.1824</td></tr>
+          </tbody>
+        </table>
+        <p class="small" style="margin-top:14px;">Metrics computed via PySpark <span class="mono">MulticlassClassificationEvaluator</span>; F1 weighted by class support.</p>
+      </div>
+
+      <div>
+        <div class="stamp">3.5 Visual ranking</div>
+        <h2 class="h3" style="margin-top:14px;">Bars scaled by F1 score.</h2>
+        <div style="margin-top:32px;">
+          <div class="bar-row"><div class="name">Random Forest</div><div class="bar"><i style="width:99.8%"></i></div><div class="val">0.9978</div></div>
+          <div class="bar-row"><div class="name">Logistic Regression</div><div class="bar"><i style="width:18.2%"></i></div><div class="val">0.1824</div></div>
+        </div>
+
+        <div style="margin-top:42px; padding:20px 22px; border:1px solid var(--ink);">
+          <p class="pull" style="font-size:30px;">RF reaches <em>F1 = 0.998</em> on a 7-class, 25M-row problem — a <em>5.5×</em> lift over a linear baseline at the same feature set.</p>
+        </div>
+
+        <p class="small" style="margin-top:18px;">Predictions persisted to HDFS as CSV (<span class="mono">project/output/modelN_predictions/</span>) and replayed by <span class="mono">ml_evaluation.py</span> &mdash; evaluator is decoupled from training.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 18. STAGE 4 DIVIDER ============== -->
+<section class="slide divider">
+  <div class="chrome"></div>
+  <div class="crown"><span>Stage <span class="dot"></span> Dashboard</span><span class="right">Stage / 4.0</span></div>
+  <div class="footer"><span>Apache Superset · the data tells its story</span><span class="pg">18 / 19</span></div>
+  <div class="body" style="display:flex; flex-direction:column; justify-content:flex-end;">
+    <div class="phase-num">04</div>
+    <div class="phase-name">Dashboard.</div>
+    <div class="phase-sub">A single Superset dashboard backed by the seven q*_results Hive tables and the model evaluation CSV. Public, reproducible, refresh-on-demand.</div>
+  </div>
+</section>
+
+<!-- ============== 19. STAGE 4 — DASHBOARD CONTENT ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>04 &nbsp;·&nbsp; Dashboard <span class="dot"></span> Story of the data</span><span class="right">Apache Superset</span></div>
+  <div class="footer"><span>Stage 04 · Presentation</span><span class="pg">19 / 19</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="gap:56px; height:100%;">
+      <div>
+        <div class="stamp">4.1 Dashboard sections</div>
+        <h2 class="h2" style="margin-top:18px;">From raw scale to model verdict, in five panels.</h2>
+        <ul class="list" style="margin-top:24px;">
+          <li><span class="k">A</span><span class="v"><strong>Data characteristics</strong> &mdash; 25M rows, 23 features, 7 classes, 12 captures.</span></li>
+          <li><span class="k">B</span><span class="v"><strong>Class balance</strong> (q1) — donut and percentage list.</span></li>
+          <li><span class="k">C</span><span class="v"><strong>Behaviour signatures</strong> (q2, q3, q5, q7) — protocol, bytes, conn_state, packets.</span></li>
+          <li><span class="k">D</span><span class="v"><strong>Top targets</strong> (q6) — port histograms per attack type.</span></li>
+          <li><span class="k">E</span><span class="v"><strong>Capture strata</strong> (q4) — bimodal maliciousness ratios.</span></li>
+          <li><span class="k">F</span><span class="v"><strong>Model performance</strong> &mdash; RF vs. LR comparison from <span class="mono">evaluation.csv</span>.</span></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="stamp">4.2 Wiring</div>
+        <h2 class="h3" style="margin-top:14px;">Backed entirely by managed Hive tables.</h2>
+        <div class="codeblock" style="margin-top:18px;">
+          <span class="c">-- Superset → Hive 2 (HiveServer2)</span><br/>
+          jdbc:hive2://hadoop-03.uni.innopolis.ru:10001<br/>
+          &nbsp;&nbsp;&nbsp;&nbsp;USE team30_projectdb;<br/>
+          <br/>
+          <span class="c">-- One dataset per chart</span><br/>
+          SELECT label, row_count, share_fraction<br/>
+          &nbsp;&nbsp;FROM q1_results;<br/>
+          <br/>
+          SELECT model, accuracy, precision, recall, f1_score<br/>
+          &nbsp;&nbsp;FROM evaluation_csv;<br/>
+        </div>
+
+        <div style="margin-top:32px; padding:22px; background:var(--ink); color:var(--paper);">
+          <div class="small upper mono" style="color:rgba(255,255,255,.6);">Reproducibility contract</div>
+          <p class="h3" style="margin-top:8px; color:var(--paper); font-weight:600;">Re-run <span class="mono">main.sh</span> on the cluster &mdash; every Hive result table and the evaluation CSV are rebuilt; the dashboard refreshes against them with no manual edits.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 20. CLOSING ============== -->
+<section class="slide">
+  <div class="chrome"></div>
+  <div class="crown"><span>End <span class="dot"></span> Conclusions &amp; reflections</span><span class="right">Final read</span></div>
+  <div class="footer"><span>Conclusion</span><span class="pg">20 / 20</span></div>
+
+  <div class="body">
+    <div class="grid col-2" style="gap:64px; height:100%;">
+      <div>
+        <div class="stamp">What we built</div>
+        <h2 class="h2" style="margin-top:18px; max-width:560px;">A reproducible Hadoop pipeline for IoT malware classification &mdash; from CSV to model to dashboard.</h2>
+        <ul class="list" style="margin-top:24px;">
+          <li><span class="k">SCALE</span><span class="v">25M Zeek rows ingested to Hive in &lt; 20 s with Parquet/Snappy.</span></li>
+          <li><span class="k">SIGNAL</span><span class="v">7 EDA insights expose class skew, port-23 dominance, S0-flood signature.</span></li>
+          <li><span class="k">MODEL</span><span class="v">Random Forest hits F1 = 0.998 across 7 classes.</span></li>
+          <li><span class="k">SHIP</span><span class="v">Single <span class="mono">main.sh</span> entry point + public Superset dashboard.</span></li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="stamp">Reflections &amp; next steps</div>
+        <h2 class="h3" style="margin-top:14px;">What we'd change in v2.</h2>
+
+        <div style="margin-top:18px;">
+          <div class="small upper mono">Lessons</div>
+          <p class="body-text" style="margin-top:6px;">Capture-level bimodality (q4) is a real risk for row-level random splits — group-aware splitting per <span class="mono">capture_id</span> is the right next iteration. Logistic Regression underperformed because the decision boundary on <span class="mono">conn_state</span> + <span class="mono">id_resp_p</span> is sharply non-linear after one-hot.</p>
+        </div>
+
+        <div style="margin-top:22px;">
+          <div class="small upper mono">Next steps</div>
+          <p class="body-text" style="margin-top:6px;">Gradient-boosted trees · per-capture cross-validation · streaming variant via Spark Structured Streaming on the same Hive partitions · per-class precision/recall in the dashboard.</p>
+        </div>
+
+        <div style="margin-top:30px; padding:22px; background:var(--ink); color:var(--paper);">
+          <div class="small upper mono" style="color:rgba(255,255,255,.6);">Final position</div>
+          <p class="h3" style="margin-top:8px; color:var(--paper); font-weight:600;">Big-data tools were the right hammer here — Hive partitioning + Spark CV made the 25M-row, 7-class job tractable on a 3-node cluster.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== 21. END MARK ============== -->
+<section class="slide end-slide">
+  <div class="end-mega"></div>
+  <div class="end-ring"></div>
+  <div class="end-ring2"></div>
+  <div class="end-dot"></div>
+
+  <div class="end-meta">
+    <span>End of Report</span>
+    <span>Team 30 · 2026</span>
+  </div>
+
+  <div class="end-block">
+    <div class="end-kicker"><span class="bar"></span><span>Thank you</span></div>
+    <h1 class="end-h1">Questions<br/>welcome.</h1>
+  </div>
+
+  <p class="lead end-lead">A Hadoop / Spark pipeline that turns 25 million raw IoT connections into a single, reproducible verdict — and a dashboard maintainers can actually read.</p>
+</section>
+
+<style>
+  .end-slide{ background:var(--paper); position:relative; }
+  .end-mega{ position:absolute; left:-180px; bottom:-180px; width:560px; height:560px; border-radius:50%; background:var(--ink); }
+  .end-ring{ position:absolute; left:-60px; bottom:-60px; width:340px; height:340px; border-radius:50%; border:1px solid rgba(255,255,255,.28); }
+  .end-ring2{ position:absolute; left:30px; bottom:30px; width:170px; height:170px; border-radius:50%; border:1px solid rgba(255,255,255,.45); }
+  .end-dot{ position:absolute; left:110px; bottom:110px; width:8px; height:8px; border-radius:50%; background:var(--paper); }
+  .end-meta{ position:absolute; left:64px; right:64px; top:64px; display:flex; justify-content:space-between; font-family:"RoobertMono"; font-size:13px; letter-spacing:.2em; text-transform:uppercase; z-index:2; }
+  .end-block{ position:absolute; left:64px; right:64px; top:180px; z-index:2; }
+  .end-kicker{ font-family:"RoobertMono"; font-size:14px; letter-spacing:.28em; text-transform:uppercase; margin-bottom:28px; display:flex; gap:18px; align-items:center; }
+  .end-kicker .bar{ display:inline-block; width:48px; height:1px; background:var(--ink); }
+  .end-h1{ font-weight:900; font-size:172px; line-height:.86; letter-spacing:-.045em; }
+  .end-lead{ position:absolute; right:64px; bottom:80px; max-width:480px; text-align:right; z-index:2; }
+</style>
+
+</body>
+</html>
