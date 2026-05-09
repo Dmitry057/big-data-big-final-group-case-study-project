@@ -71,8 +71,8 @@
   <!-- Stage 2: Hive warehouse -->
   <g>
     <rect x="850" y="365" width="220" height="120" class="box-active"/>
-    <rect x="850" y="365" width="78" height="22" fill="#ffffff"/>
-    <text x="858" y="381" class="stage-tag" fill="#0a0a0a">Stage 02</text>
+    <rect x="850" y="365" width="78" height="22" fill="#ffffff" stroke="#ffffff"/>
+    <text x="858" y="381" font-size="9px" font-weight="700" fill="#0a0a0a" letter-spacing="1.6" font-family="Courier New, monospace">STAGE 02</text>
     <text x="868" y="425" class="title-on-dark">Hive warehouse</text>
     <text x="868" y="450" class="meta-on-dark">PARTITIONED BY LABEL</text>
     <text x="868" y="466" class="meta-on-dark">7 EDA RESULT TABLES</text>
