@@ -178,3 +178,4 @@ cython_debug/
 
 # Project-specific (large data, kept on cluster only — see project notes)
 data/
+docs/
