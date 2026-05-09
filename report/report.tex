@@ -565,6 +565,58 @@ The label gets its own \texttt{StringIndexer}. We split 60/40 with
 seed 42, and write the resulting train/test out to HDFS as Parquet so
 training and evaluation read from the same on-disk artefact.
 
+\subsection{Key optimisations that made it fit on the cluster}
+
+Three things turned a slow, fragile training loop into something we could
+re-run reliably inside our YARN budget. They are not glamorous, but they
+are the reason the ML stage finished at all on a contended cluster.
+
+\begin{itemize}[leftmargin=2em]
+    \item \textbf{Persisting the training set in memory + disk.} A
+    \texttt{CrossValidator} re-reads the training fold once per
+    hyperparameter combination and once per fold. Without caching, every
+    one of those reads goes back to HDFS, decodes Parquet, re-runs the
+    feature pipeline, and shuffles --- which is most of the wall-clock
+    time. We call
+    \texttt{train\_data.persist(StorageLevel.MEMORY\_AND\_DISK)} after the
+    initial read so the second and subsequent passes hit RAM (or local
+    disk if a partition spills). This alone cut the per-fit time roughly
+    in half on our profile and let the CV runs survive single-executor
+    losses without falling back to HDFS.
+
+    \item \textbf{Selecting categorical features with \texttt{ChiSqSelector}.}
+    One-hot encoding \texttt{proto}, \texttt{service}, \texttt{conn\_state}
+    and \texttt{history} produces several hundred sparse dummy columns,
+    most of which carry no signal for the label. Feeding all of them into
+    Random Forest blows up split-search time, and into Logistic Regression
+    blows up the optimiser's inner loop. We run \texttt{ChiSqSelector(fpr=0.1)}
+    over the categorical block, fitted on the training fold only, and keep
+    only the dummies whose chi-squared p-value clears the threshold. The
+    feature vector shrinks by an order of magnitude and the model fits
+    faster without measurable loss on the held-out F1.
+
+    \item \textbf{Writing train/test as Parquet with explicit sharding.}
+    Once the feature pipeline is fitted, we materialise the transformed
+    train/test sets back to HDFS:
+    \begin{lstlisting}
+train_data.select("features", "label") \
+    .coalesce(4) \
+    .write.mode("overwrite") \
+    .format("parquet") \
+    .save("project/data/train")
+    \end{lstlisting}
+    Two things matter here. First, we write Parquet so the training script
+    can re-read the already-vectorised features without re-running the
+    feature pipeline (it would otherwise do that on every \texttt{spark-submit}).
+    Second, the explicit \texttt{coalesce(4)} controls the number of output
+    files: too many and the executor open-file overhead dominates; too few
+    and we lose parallelism on the read. Four shards matched our executor
+    layout (6 executors $\times$ 3 cores) reasonably well for both training
+    and evaluation. Combined with persistence above, the next
+    \texttt{ml\_models\_training.py} run starts from a vectorised, sharded
+    Parquet file and goes straight into the cross-validator.
+\end{itemize}
+
 \subsection{Two models, one cross-validator}
 
 We trained two models, both wrapped in \texttt{CrossValidator(numFolds=2,
