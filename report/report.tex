@@ -708,6 +708,22 @@ from the last run.
     3 rows) and four huge ones. Fine for analytical scans, painful for
     Spark shuffles --- we worked around it with
     \texttt{repartition(18)} after the read.
+    \item \textbf{Cluster budget vs.\ ML grid size.} We started with the
+    plan from the project brief: three model families, three hyperparameters
+    per model with three values each ($3^{3} = 27$ combinations per model),
+    and a 3-fold cross-validation. On paper that's $3 \times 27 \times 3 =
+    243$ training runs. On the shared Innopolis cluster, where the YARN
+    queue is contended with several other teams and our 25M-row training
+    set takes 8--12 minutes for a single fit on the requested executor
+    profile (6$\times$3$\times$6\,GB), that grid would have meant 30--50
+    hours of wall-clock time --- and we kept getting pre-empted or
+    queue-throttled in the middle of CV runs. After two failed full grids
+    we cut the scope deliberately: two model families (RF, multinomial LR),
+    a $2\times2$ grid per model, and $k=2$ CV. It's not what the brief
+    asked for, but it's what fit in the budget while still letting both
+    models finish a clean held-out evaluation. We've kept the original
+    code path intact so the larger grid can be re-enabled the moment the
+    cluster has spare capacity.
     \item \textbf{Logistic Regression went sideways.} The multinomial LR
     barely beat majority-class on this feature set. We chose to report it
     honestly rather than spend more cycles tuning a model that was
