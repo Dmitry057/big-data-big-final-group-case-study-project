@@ -15,8 +15,9 @@ run_spark_job() {
         "${spark_submit_bin}" \
         --master yarn \
         --num-executors 6 \
-        --executor-cores 2 \
-        --executor-memory 4G \
+        --executor-cores 3 \
+        --executor-memory 6G \
+        --driver-memory 4G \
         "$@"
 }
 
@@ -37,7 +38,7 @@ echo "Completed data preparation"
 
 run_spark_job scripts/ml_models_training.py
 
-echo "Completed model 1 (RF) and model 2 (MLP) training"
+echo "Completed model 1 (RF) and model 2 (Logistic Regression) training"
 
 rm -rf models/model1 models/model2
 rm -f output/model1_predictions.csv output/model2_predictions.csv output/evaluation.csv

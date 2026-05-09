@@ -1,19 +1,21 @@
-"""Train the project models sequentially: Random Forest first, then Multilayer Perceptron.
+"""Train the project models sequentially: Random Forest first, then Logistic Regression.
 
 The script reuses the same persisted train/test samples, runs grid search with
 cross-validation for each model, and saves models plus prediction CSVs to HDFS.
 """
 
 from pyspark import StorageLevel
-from pyspark.ml.classification import MultilayerPerceptronClassifier, RandomForestClassifier
+from pyspark.ml.classification import LogisticRegression, RandomForestClassifier
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pyspark.ml.tuning import CrossValidator, ParamGridBuilder
 from pyspark.sql import SparkSession
 
 TEAM = 30
-DESIRED_TOTAL_CORES = 12
+DESIRED_TOTAL_CORES = 18
 SEED = 42
 NUM_CLASSES = 7
+CV_FOLDS = 2
+CV_PARALLELISM = 3
 
 
 def load_sample_data(spark):
@@ -58,9 +60,8 @@ def train_random_forest(train_data, test_data):
 
     param_grid_rf = (
         ParamGridBuilder()
-        .addGrid(rf_classifier.numTrees, [150, 200])
-        .addGrid(rf_classifier.maxDepth, [5, 8])
-        .addGrid(rf_classifier.minInstancesPerNode, [5, 10])
+        .addGrid(rf_classifier.numTrees, [30, 60])
+        .addGrid(rf_classifier.maxDepth, [4, 6])
         .build()
     )
 
@@ -76,8 +77,8 @@ def train_random_forest(train_data, test_data):
         estimator=rf_classifier,
         estimatorParamMaps=param_grid_rf,
         evaluator=evaluator_f1,
-        numFolds=3,
-        parallelism=3,
+        numFolds=CV_FOLDS,
+        parallelism=CV_PARALLELISM,
         seed=SEED,
     )
 
@@ -108,39 +109,31 @@ def train_random_forest(train_data, test_data):
     )
 
 
-def train_mlp(train_data, test_data):
+def train_logistic_regression(train_data, test_data):
     """
-    Trains a Multilayer Perceptron classifier with Spark ML
+    Trains a Logistic Regression classifier with Spark ML
 
     :param train_data: train spark dataframe
     :param test_data: test spark dataframe
     """
 
-    print("Starting model 2 (Multilayer Perceptron)")
+    print("Starting model 2 (Logistic Regression)")
 
-    input_size = int(train_data.select("features").head()[0].size)
-    layers = [input_size, 64, 32, NUM_CLASSES]
-
-
-    print(f"Num classes: {NUM_CLASSES}, feature size: {input_size}")
-
-    mlp = MultilayerPerceptronClassifier(
+    logistic_regression = LogisticRegression(
         labelCol="label",
         featuresCol="features",
-        maxIter=100,
-        layers=layers,
-        seed=SEED,
-        solver="gd"
+        maxIter=50,
+        family="multinomial",
     )
 
     param_grid = (
         ParamGridBuilder()
-        .addGrid(mlp.blockSize, [128, 256])
-        .addGrid(mlp.stepSize, [0.03, 0.1])
+        .addGrid(logistic_regression.regParam, [0.01, 0.1])
+        .addGrid(logistic_regression.elasticNetParam, [0.0, 0.5])
         .build()
     )
 
-    print(f"MLP total combinations: {len(param_grid)}")
+    print(f"Logistic Regression total combinations: {len(param_grid)}")
 
     evaluator_f1 = MulticlassClassificationEvaluator(
         labelCol="label",
@@ -149,21 +142,21 @@ def train_mlp(train_data, test_data):
     )
 
     cross_validator = CrossValidator(
-        estimator=mlp,
+        estimator=logistic_regression,
         estimatorParamMaps=param_grid,
         evaluator=evaluator_f1,
-        numFolds=3,
-        parallelism=3,
+        numFolds=CV_FOLDS,
+        parallelism=CV_PARALLELISM,
         seed=SEED,
     )
 
-    print("Starting MLP k-fold cross validation")
-    cv_model_mlp = cross_validator.fit(train_data)
-    best_model = cv_model_mlp.bestModel
+    print("Starting Logistic Regression k-fold cross validation")
+    cv_model = cross_validator.fit(train_data)
+    best_model = cv_model.bestModel
 
     print("Best model parameters:")
     for param, value in zip(
-        [p.name for p in mlp.params], best_model.extractParamMap().values()
+        [p.name for p in logistic_regression.params], best_model.extractParamMap().values()
     ):
         print(f"  {param}: {value}")
 
@@ -200,7 +193,7 @@ def main():
     train_data, test_data = load_sample_data(spark)
 
     train_random_forest(train_data, test_data)
-    train_mlp(train_data, test_data)
+    train_logistic_regression(train_data, test_data)
 
     train_data.unpersist(blocking=True)
     spark.stop()
