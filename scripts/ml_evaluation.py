@@ -40,7 +40,7 @@ def load_predictions(path, model_name):
 model1_predictions = load_predictions(
     "project/output/model1_predictions", "Random Forest")
 model2_predictions = load_predictions(
-    "project/output/model2_predictions", "Multilayer Perceptron")
+    "project/output/model2_predictions", "Logistic Regression")
 
 print("Data loaded")
 
@@ -72,7 +72,7 @@ def metrics_row(dataframe):
 
 comparison_data = [
     ("Random Forest", *metrics_row(model1_predictions)),
-    ("Multilayer Perceptron", *metrics_row(model2_predictions)),
+    ("Logistic Regression", *metrics_row(model2_predictions)),
 ]
 
 comparison_df = spark.createDataFrame(
