@@ -96,16 +96,21 @@
   <path d="M 370 480 L 220 480 L 220 555" fill="none" stroke="#0a0a0a" stroke-width="1.5" marker-end="url(#arrow)"/>
   <text x="245" y="500" class="arrow-label">predictions.csv</text>
 
+  <!-- Arrow evaluation -> dashboard moved down to match new card -->
+
+
   <!-- evaluation.csv (small node) -->
   <g>
-    <rect x="115" y="560" width="210" height="80" class="box"/>
-    <text x="130" y="595" class="title" font-size="15px">evaluation.csv</text>
-    <text x="130" y="618" class="meta">RF: F1 = 0.998</text>
-    <text x="130" y="632" class="meta">LR: F1 = 0.182</text>
+    <rect x="115" y="560" width="210" height="100" class="box"/>
+    <rect x="115" y="560" width="78" height="22" fill="#0a0a0a"/>
+    <text x="123" y="576" class="stage-tag">Artifact</text>
+    <text x="130" y="615" class="title" font-size="15px">evaluation.csv</text>
+    <text x="130" y="638" class="meta">RF: F1 = 0.998</text>
+    <text x="130" y="652" class="meta">LR: F1 = 0.182</text>
   </g>
 
   <!-- Arrow evaluation -> dashboard -->
-  <path d="M 325 600 L 540 600" fill="none" stroke="#0a0a0a" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <path d="M 325 610 L 540 610" fill="none" stroke="#0a0a0a" stroke-width="1.5" marker-end="url(#arrow)"/>
 
   <!-- Arrow Hive (q*_results) -> dashboard -->
   <path d="M 960 485 L 960 600 L 765 600" fill="none" stroke="#0a0a0a" stroke-width="1.5" marker-end="url(#arrow)"/>
