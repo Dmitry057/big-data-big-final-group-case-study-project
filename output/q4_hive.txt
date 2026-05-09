@@ -1,0 +1,26 @@
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> USE team30_projectdb;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP TABLE IF EXISTS q4_results;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> CREATE TABLE q4_results
+. . . . . . . . . . . . . . . . . . . . . . .> STORED AS PARQUET
+. . . . . . . . . . . . . . . . . . . . . . .> AS
+. . . . . . . . . . . . . . . . . . . . . . .> SELECT
+. . . . . . . . . . . . . . . . . . . . . . .>     capture_id,
+. . . . . . . . . . . . . . . . . . . . . . .>     capture_name,
+. . . . . . . . . . . . . . . . . . . . . . .>     total_connections,
+. . . . . . . . . . . . . . . . . . . . . . .>     malicious_connections,
+. . . . . . . . . . . . . . . . . . . . . . .>     malicious_connections / total_connections AS malicious_ratio
+. . . . . . . . . . . . . . . . . . . . . . .> FROM (
+. . . . . . . . . . . . . . . . . . . . . . .>     SELECT
+. . . . . . . . . . . . . . . . . . . . . . .>         c.capture_id AS capture_id,
+. . . . . . . . . . . . . . . . . . . . . . .>         c.capture_name AS capture_name,
+. . . . . . . . . . . . . . . . . . . . . . .>         COUNT(*) AS total_connections,
+. . . . . . . . . . . . . . . . . . . . . . .>         SUM(CASE WHEN n.label = 'Benign' THEN 0 ELSE 1 END) AS malicious_connections
+. . . . . . . . . . . . . . . . . . . . . . .>     FROM network_connections_part n
+. . . . . . . . . . . . . . . . . . . . . . .>     INNER JOIN captures_bucketed c
+. . . . . . . . . . . . . . . . . . . . . . .>         ON n.capture_id = c.capture_id
+. . . . . . . . . . . . . . . . . . . . . . .>     GROUP BY c.capture_id, c.capture_name
+. . . . . . . . . . . . . . . . . . . . . . .> ) capture_stats;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 

@@ -1,0 +1,14 @@
+label,proto,row_count
+Benign,tcp,8312617
+Malicious,tcp,7054973
+Malicious C&C,tcp,8684
+Malicious PartOfAHorizontalPortScan,tcp,3386240
+Benign,udp,442425
+Malicious Attack,tcp,2755
+Malicious DDoS,tcp,5778121
+Malicious FileDownload,tcp,3
+Malicious,udp,34
+Malicious C&C,udp,1
+Malicious DDoS,udp,33
+Malicious PartOfAHorizontalPortScan,udp,1
+Benign,icmp,25116

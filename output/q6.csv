@@ -1,0 +1,30 @@
+label,id_resp_p,row_count
+Malicious,23,4055327
+Malicious DDoS,62336,3578391
+Malicious PartOfAHorizontalPortScan,23,3386119
+Malicious,81,2571979
+Malicious DDoS,80,1125806
+Malicious DDoS,992,1008351
+Malicious,8080,135382
+Malicious,22,128264
+Malicious,2323,88184
+Malicious DDoS,22,65535
+Malicious,9527,44338
+Malicious,59353,23295
+Malicious,50,8222
+Malicious C&C,6667,6706
+Malicious Attack,23,2755
+Malicious C&C,23,1736
+Malicious PartOfAHorizontalPortScan,63798,121
+Malicious C&C,80,118
+Malicious C&C,17769,95
+Malicious DDoS,443,58
+Malicious C&C,443,30
+Malicious,2407,16
+Malicious DDoS,9307,6
+Malicious DDoS,20480,3
+Malicious FileDownload,80,3
+Malicious DDoS,28416,2
+Malicious DDoS,5376,1
+Malicious DDoS,33011,1
+Malicious PartOfAHorizontalPortScan,256,1

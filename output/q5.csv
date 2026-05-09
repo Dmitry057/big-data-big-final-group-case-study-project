@@ -1,0 +1,47 @@
+label,conn_state,row_count
+Benign,OTH,27110
+Benign,REJ,8768
+Benign,RSTO,374
+Benign,RSTOS0,350
+Benign,RSTR,285
+Benign,RSTRH,33
+Benign,S0,8722217
+Benign,S1,68
+Benign,S2,73
+Benign,S3,873
+Benign,SF,19929
+Benign,SH,77
+Benign,SHR,1
+Malicious,REJ,3918
+Malicious,RSTO,48
+Malicious,RSTOS0,9
+Malicious,RSTR,1460
+Malicious,RSTRH,45
+Malicious,S0,7036199
+Malicious,S1,29
+Malicious,S2,37
+Malicious,SF,13240
+Malicious,SH,22
+Malicious Attack,REJ,2510
+Malicious Attack,RSTO,92
+Malicious Attack,RSTOS0,7
+Malicious Attack,RSTR,66
+Malicious Attack,S0,1
+Malicious Attack,S1,25
+Malicious Attack,S2,25
+Malicious Attack,SF,29
+Malicious C&C,REJ,876
+Malicious C&C,RSTR,106
+Malicious C&C,S0,6071
+Malicious C&C,S1,9
+Malicious C&C,S2,1
+Malicious C&C,S3,1584
+Malicious C&C,SF,38
+Malicious DDoS,OTH,3658226
+Malicious DDoS,RSTOS0,2119486
+Malicious DDoS,S0,392
+Malicious DDoS,S3,1
+Malicious DDoS,SF,28
+Malicious DDoS,SH,21
+Malicious FileDownload,SF,3
+Malicious PartOfAHorizontalPortScan,S0,3386241

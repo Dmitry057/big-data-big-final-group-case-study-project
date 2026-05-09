@@ -1,0 +1,17 @@
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> USE team30_projectdb;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP TABLE IF EXISTS q7_results;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> CREATE TABLE q7_results
+. . . . . . . . . . . . . . . . . . . . . . .> STORED AS PARQUET
+. . . . . . . . . . . . . . . . . . . . . . .> AS
+. . . . . . . . . . . . . . . . . . . . . . .> SELECT
+. . . . . . . . . . . . . . . . . . . . . . .>     label,
+. . . . . . . . . . . . . . . . . . . . . . .>     COUNT(*) AS connection_count,
+. . . . . . . . . . . . . . . . . . . . . . .>     AVG(COALESCE(orig_pkts, 0)) AS avg_orig_pkts,
+. . . . . . . . . . . . . . . . . . . . . . .>     AVG(COALESCE(resp_pkts, 0)) AS avg_resp_pkts,
+. . . . . . . . . . . . . . . . . . . . . . .>     AVG(COALESCE(orig_pkts, 0) + COALESCE(resp_pkts, 0)) AS avg_total_pkts
+. . . . . . . . . . . . . . . . . . . . . . .> FROM network_connections_part
+. . . . . . . . . . . . . . . . . . . . . . .> GROUP BY label;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 

@@ -1,0 +1,15 @@
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> USE team30_projectdb;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP TABLE IF EXISTS q2_results;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> CREATE TABLE q2_results
+. . . . . . . . . . . . . . . . . . . . . . .> STORED AS PARQUET
+. . . . . . . . . . . . . . . . . . . . . . .> AS
+. . . . . . . . . . . . . . . . . . . . . . .> SELECT
+. . . . . . . . . . . . . . . . . . . . . . .>     label,
+. . . . . . . . . . . . . . . . . . . . . . .>     proto,
+. . . . . . . . . . . . . . . . . . . . . . .>     COUNT(*) AS row_count
+. . . . . . . . . . . . . . . . . . . . . . .> FROM network_connections_part
+. . . . . . . . . . . . . . . . . . . . . . .> GROUP BY label, proto;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 

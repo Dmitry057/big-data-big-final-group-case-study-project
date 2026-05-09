@@ -1,4 +1,4 @@
 pylint
-pyspark
-pandas
 streamlit
+gdown
+psycopg2-binary

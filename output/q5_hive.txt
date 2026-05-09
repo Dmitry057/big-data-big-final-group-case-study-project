@@ -1,0 +1,16 @@
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> USE team30_projectdb;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP TABLE IF EXISTS q5_results;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> CREATE TABLE q5_results
+. . . . . . . . . . . . . . . . . . . . . . .> STORED AS PARQUET
+. . . . . . . . . . . . . . . . . . . . . . .> AS
+. . . . . . . . . . . . . . . . . . . . . . .> SELECT
+. . . . . . . . . . . . . . . . . . . . . . .>     label,
+. . . . . . . . . . . . . . . . . . . . . . .>     COALESCE(conn_state, 'UNKNOWN') AS conn_state,
+. . . . . . . . . . . . . . . . . . . . . . .>     COUNT(*) AS row_count
+. . . . . . . . . . . . . . . . . . . . . . .> FROM network_connections_part
+. . . . . . . . . . . . . . . . . . . . . . .> GROUP BY label, COALESCE(conn_state, 'UNKNOWN')
+. . . . . . . . . . . . . . . . . . . . . . .> ORDER BY label, conn_state;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 

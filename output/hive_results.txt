@@ -1,0 +1,360 @@
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SET hive.execution.engine=tez;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SET hive.exec.dynamic.partition=true;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SET hive.exec.dynamic.partition.mode=nonstrict;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SET hive.enforce.bucketing=true;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SET hive.resultset.use.unique.column.names=false;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SET hive.vectorized.execution.enabled=false;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SET hive.vectorized.execution.reduce.enabled=false;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP DATABASE IF EXISTS team30_projectdb CASCADE;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> CREATE DATABASE team30_projectdb LOCATION 'project/hive/warehouse';
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> USE team30_projectdb;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> dfs -rm -r -f project/hive/warehouse/captures_bucketed;
++-------------+
+| DFS Output  |
++-------------+
++-------------+
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> dfs -rm -r -f project/hive/warehouse/network_connections_part;
++-------------+
+| DFS Output  |
++-------------+
++-------------+
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP TABLE IF EXISTS captures_ext;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> CREATE EXTERNAL TABLE captures_ext (
+. . . . . . . . . . . . . . . . . . . . . . .>     capture_id INT,
+. . . . . . . . . . . . . . . . . . . . . . .>     capture_name STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     source_file STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     created_at STRING
+. . . . . . . . . . . . . . . . . . . . . . .> )
+. . . . . . . . . . . . . . . . . . . . . . .> STORED AS PARQUET
+. . . . . . . . . . . . . . . . . . . . . . .> LOCATION 'project/warehouse/captures';
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP TABLE IF EXISTS network_connections_ext;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> CREATE EXTERNAL TABLE network_connections_ext (
+. . . . . . . . . . . . . . . . . . . . . . .>     connection_id BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     capture_id INT,
+. . . . . . . . . . . . . . . . . . . . . . .>     ts STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     uid STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_orig_h STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_orig_p INT,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_resp_h STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_resp_p INT,
+. . . . . . . . . . . . . . . . . . . . . . .>     proto STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     service STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     duration DOUBLE,
+. . . . . . . . . . . . . . . . . . . . . . .>     orig_bytes BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     resp_bytes BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     conn_state STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     local_orig BOOLEAN,
+. . . . . . . . . . . . . . . . . . . . . . .>     local_resp BOOLEAN,
+. . . . . . . . . . . . . . . . . . . . . . .>     missed_bytes BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     history STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     orig_pkts BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     orig_ip_bytes BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     resp_pkts BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     resp_ip_bytes BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     tunnel_parents STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     label STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     detailed_label STRING
+. . . . . . . . . . . . . . . . . . . . . . .> )
+. . . . . . . . . . . . . . . . . . . . . . .> STORED AS PARQUET
+. . . . . . . . . . . . . . . . . . . . . . .> LOCATION 'project/warehouse/network_connections';
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP TABLE IF EXISTS captures_bucketed;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> CREATE EXTERNAL TABLE captures_bucketed (
+. . . . . . . . . . . . . . . . . . . . . . .>     capture_id INT,
+. . . . . . . . . . . . . . . . . . . . . . .>     capture_name STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     source_file STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     created_at TIMESTAMP
+. . . . . . . . . . . . . . . . . . . . . . .> )
+. . . . . . . . . . . . . . . . . . . . . . .> CLUSTERED BY (capture_id) INTO 4 BUCKETS
+. . . . . . . . . . . . . . . . . . . . . . .> STORED AS PARQUET
+. . . . . . . . . . . . . . . . . . . . . . .> LOCATION 'project/hive/warehouse/captures_bucketed';
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP TABLE IF EXISTS network_connections_part;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> CREATE EXTERNAL TABLE network_connections_part (
+. . . . . . . . . . . . . . . . . . . . . . .>     connection_id BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     capture_id INT,
+. . . . . . . . . . . . . . . . . . . . . . .>     ts TIMESTAMP,
+. . . . . . . . . . . . . . . . . . . . . . .>     uid STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_orig_h STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_orig_p INT,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_resp_h STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_resp_p INT,
+. . . . . . . . . . . . . . . . . . . . . . .>     proto STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     service STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     duration DOUBLE,
+. . . . . . . . . . . . . . . . . . . . . . .>     orig_bytes BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     resp_bytes BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     conn_state STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     local_orig BOOLEAN,
+. . . . . . . . . . . . . . . . . . . . . . .>     local_resp BOOLEAN,
+. . . . . . . . . . . . . . . . . . . . . . .>     missed_bytes BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     history STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     orig_pkts BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     orig_ip_bytes BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     resp_pkts BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     resp_ip_bytes BIGINT,
+. . . . . . . . . . . . . . . . . . . . . . .>     tunnel_parents STRING,
+. . . . . . . . . . . . . . . . . . . . . . .>     detailed_label STRING
+. . . . . . . . . . . . . . . . . . . . . . .> )
+. . . . . . . . . . . . . . . . . . . . . . .> PARTITIONED BY (label STRING)
+. . . . . . . . . . . . . . . . . . . . . . .> STORED AS PARQUET
+. . . . . . . . . . . . . . . . . . . . . . .> LOCATION 'project/hive/warehouse/network_connections_part';
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> INSERT OVERWRITE TABLE captures_bucketed
+. . . . . . . . . . . . . . . . . . . . . . .> SELECT capture_id, capture_name, source_file, CAST(created_at AS TIMESTAMP)
+. . . . . . . . . . . . . . . . . . . . . . .> FROM captures_ext;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> INSERT OVERWRITE TABLE network_connections_part PARTITION (label)
+. . . . . . . . . . . . . . . . . . . . . . .> SELECT
+. . . . . . . . . . . . . . . . . . . . . . .>     connection_id,
+. . . . . . . . . . . . . . . . . . . . . . .>     capture_id,
+. . . . . . . . . . . . . . . . . . . . . . .>     CAST(ts AS TIMESTAMP),
+. . . . . . . . . . . . . . . . . . . . . . .>     uid,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_orig_h,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_orig_p,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_resp_h,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_resp_p,
+. . . . . . . . . . . . . . . . . . . . . . .>     proto,
+. . . . . . . . . . . . . . . . . . . . . . .>     service,
+. . . . . . . . . . . . . . . . . . . . . . .>     duration,
+. . . . . . . . . . . . . . . . . . . . . . .>     orig_bytes,
+. . . . . . . . . . . . . . . . . . . . . . .>     resp_bytes,
+. . . . . . . . . . . . . . . . . . . . . . .>     conn_state,
+. . . . . . . . . . . . . . . . . . . . . . .>     local_orig,
+. . . . . . . . . . . . . . . . . . . . . . .>     local_resp,
+. . . . . . . . . . . . . . . . . . . . . . .>     missed_bytes,
+. . . . . . . . . . . . . . . . . . . . . . .>     history,
+. . . . . . . . . . . . . . . . . . . . . . .>     orig_pkts,
+. . . . . . . . . . . . . . . . . . . . . . .>     orig_ip_bytes,
+. . . . . . . . . . . . . . . . . . . . . . .>     resp_pkts,
+. . . . . . . . . . . . . . . . . . . . . . .>     resp_ip_bytes,
+. . . . . . . . . . . . . . . . . . . . . . .>     tunnel_parents,
+. . . . . . . . . . . . . . . . . . . . . . .>     detailed_label,
+. . . . . . . . . . . . . . . . . . . . . . .>     label
+. . . . . . . . . . . . . . . . . . . . . . .> FROM network_connections_ext;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP TABLE IF EXISTS captures_ext;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP TABLE IF EXISTS network_connections_ext;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SHOW DATABASES;
++------------------------+
+|     database_name      |
++------------------------+
+| default                |
+| retake1                |
+| root_db                |
+| show                   |
+| team00_projectdb       |
+| team0_projectdb        |
+| team0db                |
+| team0db1               |
+| team0db2               |
+| team11_projectdb       |
+| team12_db              |
+| team12_hive_projectdb  |
+| team12_projectdb       |
+| team13_projectdb       |
+| team13_projectdb_hive  |
+| team14_projectdb       |
+| team15_projectdb       |
+| team16_projectdb       |
+| team17_projectdb       |
+| team18_projectdb       |
+| team19_projectdb       |
+| team1_projectdb        |
+| team20_projectdb       |
+| team21_projectdb       |
+| team21_projectdb_v2    |
+| team21_projectdb_v3    |
+| team21_projectdb_v4    |
+| team22_projectdb       |
+| team23_projectdb       |
+| team24_projectdb       |
+| team25_projectdb       |
+| team26_projectdb       |
+| team27_projectdb       |
+| team28_hive_db         |
+| team28_projectdb       |
+| team29_projectdb       |
+| team2_projectdb        |
+| team30_projectdb       |
+| team31_projectdb       |
+| team33_projectdb       |
+| team34_projectdb       |
+| team36_projectdb       |
+| team36db               |
+| team37_projectdb       |
+| team38_projectdb       |
+| team39_projectdb       |
+| team3_projectdb        |
+| team48_projectdb       |
+| team49_projectdb       |
+| team4_projectdb        |
+| team50                 |
+| team5_projectdb        |
+| team6_projectdb        |
+| team7_projectdb        |
+| team8_projectdb        |
+| team9_projectdb        |
+| teamx_projectdb        |
+| temp_team5_projectdb   |
+| testdb                 |
++------------------------+
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> USE team30_projectdb;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SHOW TABLES;
++---------------------------+
+|         tab_name          |
++---------------------------+
+| captures_bucketed         |
+| network_connections_part  |
++---------------------------+
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DESCRIBE FORMATTED captures_bucketed;
++-------------------------------+----------------------------------------------------+----------------------------------------------------+
+|           col_name            |                     data_type                      |                      comment                       |
++-------------------------------+----------------------------------------------------+----------------------------------------------------+
+| # col_name                    | data_type                                          | comment                                            |
+| capture_id                    | int                                                |                                                    |
+| capture_name                  | string                                             |                                                    |
+| source_file                   | string                                             |                                                    |
+| created_at                    | timestamp                                          |                                                    |
+|                               | NULL                                               | NULL                                               |
+| # Detailed Table Information  | NULL                                               | NULL                                               |
+| Database:                     | team30_projectdb                                   | NULL                                               |
+| OwnerType:                    | USER                                               | NULL                                               |
+| Owner:                        | team30                                             | NULL                                               |
+| CreateTime:                   | Sun Apr 19 15:22:10 MSK 2026                       | NULL                                               |
+| LastAccessTime:               | UNKNOWN                                            | NULL                                               |
+| Retention:                    | 0                                                  | NULL                                               |
+| Location:                     | hdfs://hadoop-02.uni.innopolis.ru:8020/user/team30/project/hive/warehouse/captures_bucketed | NULL                                               |
+| Table Type:                   | EXTERNAL_TABLE                                     | NULL                                               |
+| Table Parameters:             | NULL                                               | NULL                                               |
+|                               | COLUMN_STATS_ACCURATE                              | {\"BASIC_STATS\":\"true\",\"COLUMN_STATS\":{\"capture_id\":\"true\",\"capture_name\":\"true\",\"created_at\":\"true\",\"source_file\":\"true\"}} |
+|                               | EXTERNAL                                           | TRUE                                               |
+|                               | bucketing_version                                  | 2                                                  |
+|                               | numFiles                                           | 4                                                  |
+|                               | numRows                                            | 12                                                 |
+|                               | rawDataSize                                        | 48                                                 |
+|                               | totalSize                                          | 5924                                               |
+|                               | transient_lastDdlTime                              | 1776601338                                         |
+|                               | NULL                                               | NULL                                               |
+| # Storage Information         | NULL                                               | NULL                                               |
+| SerDe Library:                | org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe | NULL                                               |
+| InputFormat:                  | org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat | NULL                                               |
+| OutputFormat:                 | org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat | NULL                                               |
+| Compressed:                   | No                                                 | NULL                                               |
+| Num Buckets:                  | 4                                                  | NULL                                               |
+| Bucket Columns:               | [capture_id]                                       | NULL                                               |
+| Sort Columns:                 | []                                                 | NULL                                               |
+| Storage Desc Params:          | NULL                                               | NULL                                               |
+|                               | serialization.format                               | 1                                                  |
++-------------------------------+----------------------------------------------------+----------------------------------------------------+
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DESCRIBE FORMATTED network_connections_part;
++-------------------------------+----------------------------------------------------+-----------------------------+
+|           col_name            |                     data_type                      |           comment           |
++-------------------------------+----------------------------------------------------+-----------------------------+
+| # col_name                    | data_type                                          | comment                     |
+| connection_id                 | bigint                                             |                             |
+| capture_id                    | int                                                |                             |
+| ts                            | timestamp                                          |                             |
+| uid                           | string                                             |                             |
+| id_orig_h                     | string                                             |                             |
+| id_orig_p                     | int                                                |                             |
+| id_resp_h                     | string                                             |                             |
+| id_resp_p                     | int                                                |                             |
+| proto                         | string                                             |                             |
+| service                       | string                                             |                             |
+| duration                      | double                                             |                             |
+| orig_bytes                    | bigint                                             |                             |
+| resp_bytes                    | bigint                                             |                             |
+| conn_state                    | string                                             |                             |
+| local_orig                    | boolean                                            |                             |
+| local_resp                    | boolean                                            |                             |
+| missed_bytes                  | bigint                                             |                             |
+| history                       | string                                             |                             |
+| orig_pkts                     | bigint                                             |                             |
+| orig_ip_bytes                 | bigint                                             |                             |
+| resp_pkts                     | bigint                                             |                             |
+| resp_ip_bytes                 | bigint                                             |                             |
+| tunnel_parents                | string                                             |                             |
+| detailed_label                | string                                             |                             |
+|                               | NULL                                               | NULL                        |
+| # Partition Information       | NULL                                               | NULL                        |
+| # col_name                    | data_type                                          | comment                     |
+| label                         | string                                             |                             |
+|                               | NULL                                               | NULL                        |
+| # Detailed Table Information  | NULL                                               | NULL                        |
+| Database:                     | team30_projectdb                                   | NULL                        |
+| OwnerType:                    | USER                                               | NULL                        |
+| Owner:                        | team30                                             | NULL                        |
+| CreateTime:                   | Sun Apr 19 15:22:10 MSK 2026                       | NULL                        |
+| LastAccessTime:               | UNKNOWN                                            | NULL                        |
+| Retention:                    | 0                                                  | NULL                        |
+| Location:                     | hdfs://hadoop-02.uni.innopolis.ru:8020/user/team30/project/hive/warehouse/network_connections_part | NULL                        |
+| Table Type:                   | EXTERNAL_TABLE                                     | NULL                        |
+| Table Parameters:             | NULL                                               | NULL                        |
+|                               | COLUMN_STATS_ACCURATE                              | {\"BASIC_STATS\":\"true\"}  |
+|                               | EXTERNAL                                           | TRUE                        |
+|                               | bucketing_version                                  | 2                           |
+|                               | numFiles                                           | 32                          |
+|                               | numPartitions                                      | 7                           |
+|                               | numRows                                            | 25011003                    |
+|                               | rawDataSize                                        | 600264072                   |
+|                               | totalSize                                          | 1561522696                  |
+|                               | transient_lastDdlTime                              | 1776601330                  |
+|                               | NULL                                               | NULL                        |
+| # Storage Information         | NULL                                               | NULL                        |
+| SerDe Library:                | org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe | NULL                        |
+| InputFormat:                  | org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat | NULL                        |
+| OutputFormat:                 | org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat | NULL                        |
+| Compressed:                   | No                                                 | NULL                        |
+| Num Buckets:                  | -1                                                 | NULL                        |
+| Bucket Columns:               | []                                                 | NULL                        |
+| Sort Columns:                 | []                                                 | NULL                        |
+| Storage Desc Params:          | NULL                                               | NULL                        |
+|                               | serialization.format                               | 1                           |
++-------------------------------+----------------------------------------------------+-----------------------------+
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SHOW PARTITIONS network_connections_part;
++--------------------------------------------+
+|                 partition                  |
++--------------------------------------------+
+| label=Benign                               |
+| label=Malicious                            |
+| label=Malicious Attack                     |
+| label=Malicious C&C                        |
+| label=Malicious DDoS                       |
+| label=Malicious FileDownload               |
+| label=Malicious PartOfAHorizontalPortScan  |
++--------------------------------------------+
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SELECT COUNT(*) AS captures_count FROM captures_bucketed;
++-----------------+
+| captures_count  |
++-----------------+
+| 12              |
++-----------------+
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SELECT COUNT(*) AS connections_count FROM network_connections_part;
++--------------------+
+| connections_count  |
++--------------------+
+| 25011003           |
++--------------------+
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> SELECT label, COUNT(*) AS row_count
+. . . . . . . . . . . . . . . . . . . . . . .> FROM network_connections_part
+. . . . . . . . . . . . . . . . . . . . . . .> GROUP BY label
+. . . . . . . . . . . . . . . . . . . . . . .> ORDER BY row_count DESC, label;
++--------------------------------------+------------+
+|                label                 | row_count  |
++--------------------------------------+------------+
+| Benign                               | 8780158    |
+| Malicious                            | 7055007    |
+| Malicious DDoS                       | 5778154    |
+| Malicious PartOfAHorizontalPortScan  | 3386241    |
+| Malicious C&C                        | 8685       |
+| Malicious Attack                     | 2755       |
+| Malicious FileDownload               | 3          |
++--------------------------------------+------------+
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 

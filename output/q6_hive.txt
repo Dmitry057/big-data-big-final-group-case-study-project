@@ -1,0 +1,18 @@
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> USE team30_projectdb;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> DROP TABLE IF EXISTS q6_results;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> CREATE TABLE q6_results
+. . . . . . . . . . . . . . . . . . . . . . .> STORED AS PARQUET
+. . . . . . . . . . . . . . . . . . . . . . .> AS
+. . . . . . . . . . . . . . . . . . . . . . .> SELECT
+. . . . . . . . . . . . . . . . . . . . . . .>     label,
+. . . . . . . . . . . . . . . . . . . . . . .>     id_resp_p,
+. . . . . . . . . . . . . . . . . . . . . . .>     COUNT(*) AS row_count
+. . . . . . . . . . . . . . . . . . . . . . .> FROM network_connections_part
+. . . . . . . . . . . . . . . . . . . . . . .> WHERE label <> 'Benign'
+. . . . . . . . . . . . . . . . . . . . . . .>     AND id_resp_p IS NOT NULL
+. . . . . . . . . . . . . . . . . . . . . . .> GROUP BY label, id_resp_p
+. . . . . . . . . . . . . . . . . . . . . . .> ORDER BY row_count DESC, label, id_resp_p;
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
+0: jdbc:hive2://hadoop-03.uni.innopolis.ru:10> 
