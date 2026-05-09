@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0a0a0a"/>
+    </marker>
+    <pattern id="grain" patternUnits="userSpaceOnUse" width="6" height="6">
+      <circle cx="1" cy="1" r="0.4" fill="#0a0a0a" opacity="0.06"/>
+      <circle cx="4" cy="4" r="0.3" fill="#0a0a0a" opacity="0.04"/>
+    </pattern>
+    <style>
+      .box { fill: #ffffff; stroke: #0a0a0a; stroke-width: 1.5; }
+      .box-active { fill: #0a0a0a; stroke: #0a0a0a; stroke-width: 1.5; }
+      .title { font-size: 17px; font-weight: 700; fill: #0a0a0a; }
+      .title-on-dark { font-size: 17px; font-weight: 700; fill: #ffffff; }
+      .meta { font-size: 11px; font-weight: 500; fill: #6b6b6b; letter-spacing: 0.12em; text-transform: uppercase; font-family: "Courier New", monospace; }
+      .meta-on-dark { font-size: 11px; font-weight: 500; fill: #cfcfcf; letter-spacing: 0.12em; text-transform: uppercase; font-family: "Courier New", monospace; }
+      .arrow-label { font-size: 11px; fill: #0a0a0a; font-style: italic; font-family: "Courier New", monospace; }
+      .stage-tag { font-size: 9px; font-weight: 700; fill: #ffffff; background: #0a0a0a; letter-spacing: 0.18em; text-transform: uppercase; font-family: "Courier New", monospace; }
+      .header { font-size: 22px; font-weight: 700; fill: #0a0a0a; letter-spacing: -0.01em; }
+      .subheader { font-size: 12px; fill: #6b6b6b; letter-spacing: 0.16em; text-transform: uppercase; font-family: "Courier New", monospace; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="720" fill="#ffffff"/>
+  <rect width="1200" height="720" fill="url(#grain)"/>
+
+  <text x="60" y="50" class="subheader">Figure · Pipeline architecture</text>
+  <text x="60" y="82" class="header">From a folder of CSVs to a refreshing dashboard.</text>
+  <line x1="60" y1="100" x2="1140" y2="100" stroke="#0a0a0a" stroke-width="1"/>
+
+  <!-- Stage 1: CSV -->
+  <g>
+    <rect x="60" y="160" width="220" height="120" class="box"/>
+    <rect x="60" y="160" width="78" height="22" fill="#0a0a0a"/>
+    <text x="68" y="176" class="stage-tag">Stage 01</text>
+    <text x="78" y="218" class="title">12 IoT-23 CSVs</text>
+    <text x="78" y="245" class="meta">RAW ZEEK CONN.LOG</text>
+    <text x="78" y="262" class="meta">~737 MB ON DISK</text>
+  </g>
+
+  <!-- Arrow 1 -->
+  <line x1="280" y1="220" x2="365" y2="220" stroke="#0a0a0a" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="290" y="210" class="arrow-label">gdown + COPY</text>
+
+  <!-- Stage 1: PostgreSQL -->
+  <g>
+    <rect x="370" y="160" width="220" height="120" class="box"/>
+    <text x="388" y="218" class="title">PostgreSQL</text>
+    <text x="388" y="245" class="meta">CITUS · TEAM30_PROJECTDB</text>
+    <text x="388" y="262" class="meta">2 TYPED TABLES</text>
+  </g>
+
+  <!-- Arrow 2 -->
+  <line x1="590" y1="220" x2="675" y2="220" stroke="#0a0a0a" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="600" y="210" class="arrow-label">sqoop import</text>
+
+  <!-- Stage 1/2: HDFS -->
+  <g>
+    <rect x="680" y="160" width="220" height="120" class="box"/>
+    <text x="698" y="218" class="title">HDFS Parquet</text>
+    <text x="698" y="245" class="meta">SNAPPY · /USER/TEAM30/</text>
+    <text x="698" y="262" class="meta">EXTERNAL HIVE TABLES</text>
+  </g>
+
+  <!-- Arrow 3 (bend down) -->
+  <path d="M 900 220 L 970 220 L 970 360" fill="none" stroke="#0a0a0a" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="985" y="295" class="arrow-label">db.hql</text>
+  <text x="985" y="312" class="arrow-label">tez engine</text>
+
+  <!-- Stage 2: Hive warehouse -->
+  <g>
+    <rect x="850" y="365" width="220" height="120" class="box-active"/>
+    <rect x="850" y="365" width="78" height="22" fill="#ffffff"/>
+    <text x="858" y="381" class="stage-tag" fill="#0a0a0a">Stage 02</text>
+    <text x="868" y="425" class="title-on-dark">Hive warehouse</text>
+    <text x="868" y="450" class="meta-on-dark">PARTITIONED BY LABEL</text>
+    <text x="868" y="466" class="meta-on-dark">7 EDA RESULT TABLES</text>
+  </g>
+
+  <!-- Arrow Hive -> Spark -->
+  <path d="M 850 425 L 590 425" fill="none" stroke="#0a0a0a" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="610" y="415" class="arrow-label">project/data/train · /test</text>
+
+  <!-- Stage 3: Spark ML -->
+  <g>
+    <rect x="370" y="365" width="220" height="120" class="box"/>
+    <rect x="370" y="365" width="78" height="22" fill="#0a0a0a"/>
+    <text x="378" y="381" class="stage-tag">Stage 03</text>
+    <text x="388" y="425" class="title">Spark ML on YARN</text>
+    <text x="388" y="450" class="meta">RANDOM FOREST + LR</text>
+    <text x="388" y="466" class="meta">6 EXEC × 3 CORE × 6 GB</text>
+  </g>
+
+  <!-- Arrow Spark -> evaluation -->
+  <path d="M 370 480 L 220 480 L 220 555" fill="none" stroke="#0a0a0a" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="245" y="500" class="arrow-label">predictions.csv</text>
+
+  <!-- evaluation.csv (small node) -->
+  <g>
+    <rect x="115" y="560" width="210" height="80" class="box"/>
+    <text x="130" y="595" class="title" font-size="15px">evaluation.csv</text>
+    <text x="130" y="618" class="meta">RF: F1 = 0.998</text>
+    <text x="130" y="632" class="meta">LR: F1 = 0.182</text>
+  </g>
+
+  <!-- Arrow evaluation -> dashboard -->
+  <path d="M 325 600 L 540 600" fill="none" stroke="#0a0a0a" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Arrow Hive (q*_results) -> dashboard -->
+  <path d="M 960 485 L 960 600 L 765 600" fill="none" stroke="#0a0a0a" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="975" y="555" class="arrow-label">q1..q7</text>
+
+  <!-- Stage 4: Dashboard -->
+  <g>
+    <rect x="545" y="555" width="220" height="100" class="box"/>
+    <rect x="545" y="555" width="78" height="22" fill="#0a0a0a"/>
+    <text x="553" y="571" class="stage-tag">Stage 04</text>
+    <text x="563" y="610" class="title">Superset Dashboard</text>
+    <text x="563" y="635" class="meta">PUBLIC · REFRESH ON DEMAND</text>
+  </g>
+
+  <!-- Footer note -->
+  <line x1="60" y1="685" x2="1140" y2="685" stroke="#0a0a0a" stroke-width="1" opacity="0.3"/>
+  <text x="60" y="705" class="meta">Single entry point · main.sh · every stage idempotent</text>
+  <text x="1140" y="705" class="meta" text-anchor="end">Hadoop · 3 nodes · YARN · Innopolis cluster</text>
+</svg>

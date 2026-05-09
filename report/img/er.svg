@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 760" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <pattern id="grain2" patternUnits="userSpaceOnUse" width="6" height="6">
+      <circle cx="1" cy="1" r="0.4" fill="#0a0a0a" opacity="0.06"/>
+      <circle cx="4" cy="4" r="0.3" fill="#0a0a0a" opacity="0.04"/>
+    </pattern>
+    <marker id="crow" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" orient="auto">
+      <path d="M 0 7 L 13 0 M 0 7 L 13 7 M 0 7 L 13 14" stroke="#0a0a0a" stroke-width="1.5" fill="none"/>
+    </marker>
+    <marker id="one" viewBox="0 0 14 14" refX="13" refY="7" markerWidth="14" markerHeight="14" orient="auto">
+      <path d="M 4 0 L 4 14" stroke="#0a0a0a" stroke-width="1.5"/>
+    </marker>
+    <style>
+      .table-bg { fill: #ffffff; stroke: #0a0a0a; stroke-width: 1.5; }
+      .table-head { fill: #0a0a0a; }
+      .table-name { font-size: 16px; font-weight: 700; fill: #ffffff; letter-spacing: 0.16em; text-transform: uppercase; font-family: "Courier New", monospace; }
+      .col { font-size: 13px; fill: #0a0a0a; font-family: "Courier New", monospace; }
+      .col-pk { font-size: 13px; font-weight: 700; fill: #0a0a0a; font-family: "Courier New", monospace; }
+      .type { font-size: 11px; fill: #6b6b6b; font-family: "Courier New", monospace; }
+      .row-line { stroke: #0a0a0a; stroke-width: 0.6; opacity: 0.18; }
+      .header { font-size: 22px; font-weight: 700; fill: #0a0a0a; letter-spacing: -0.01em; }
+      .subheader { font-size: 12px; fill: #6b6b6b; letter-spacing: 0.16em; text-transform: uppercase; font-family: "Courier New", monospace; }
+      .badge { font-size: 10px; font-weight: 700; fill: #ffffff; letter-spacing: 0.18em; text-transform: uppercase; font-family: "Courier New", monospace; }
+      .relationship-label { font-size: 12px; font-weight: 600; fill: #0a0a0a; font-family: "Courier New", monospace; letter-spacing: 0.1em; text-transform: uppercase; }
+      .stage-tag { font-size: 9px; font-weight: 700; fill: #0a0a0a; letter-spacing: 0.18em; text-transform: uppercase; font-family: "Courier New", monospace; }
+    </style>
+  </defs>
+
+  <rect width="1200" height="760" fill="#ffffff"/>
+  <rect width="1200" height="760" fill="url(#grain2)"/>
+
+  <text x="60" y="50" class="subheader">Figure · Relational schema</text>
+  <text x="60" y="82" class="header">Two tables, one foreign key — all the structure we need.</text>
+  <line x1="60" y1="100" x2="1140" y2="100" stroke="#0a0a0a" stroke-width="1"/>
+
+  <!-- captures (left) -->
+  <g>
+    <rect x="100" y="170" width="320" height="320" class="table-bg"/>
+    <rect x="100" y="170" width="320" height="44" class="table-head"/>
+    <text x="120" y="199" class="table-name">captures</text>
+    <rect x="318" y="180" width="92" height="22" fill="#ffffff"/>
+    <text x="328" y="195" class="stage-tag">DIMENSION</text>
+
+    <text x="120" y="248" class="col-pk">capture_id</text>
+    <text x="395" y="248" class="type" text-anchor="end">int · PK</text>
+    <line x1="115" y1="262" x2="405" y2="262" class="row-line"/>
+
+    <text x="120" y="288" class="col">capture_name</text>
+    <text x="395" y="288" class="type" text-anchor="end">varchar(128)</text>
+    <line x1="115" y1="302" x2="405" y2="302" class="row-line"/>
+
+    <text x="120" y="328" class="col">source_file</text>
+    <text x="395" y="328" class="type" text-anchor="end">varchar(255) · UQ</text>
+    <line x1="115" y1="342" x2="405" y2="342" class="row-line"/>
+
+    <text x="120" y="368" class="col">created_at</text>
+    <text x="395" y="368" class="type" text-anchor="end">timestamptz</text>
+
+    <text x="120" y="445" class="type" font-style="italic">12 rows · one per IoT-23 capture file.</text>
+    <text x="120" y="465" class="type" font-style="italic">Bucketed in Hive on capture_id (4 buckets)</text>
+    <text x="120" y="481" class="type" font-style="italic">to keep joins fast.</text>
+  </g>
+
+  <!-- Relationship line (1) ───── (N) -->
+  <line x1="420" y1="248" x2="780" y2="248" stroke="#0a0a0a" stroke-width="2" marker-start="url(#one)" marker-end="url(#crow)"/>
+  <text x="600" y="232" class="relationship-label" text-anchor="middle">1 ── n</text>
+  <text x="600" y="270" class="type" text-anchor="middle" font-style="italic">a capture has many connections</text>
+
+  <!-- network_connections (right) -->
+  <g>
+    <rect x="780" y="170" width="370" height="540" class="table-bg"/>
+    <rect x="780" y="170" width="370" height="44" class="table-head"/>
+    <text x="800" y="199" class="table-name">network_connections</text>
+    <rect x="1090" y="180" width="56" height="22" fill="#ffffff"/>
+    <text x="1100" y="195" class="stage-tag">FACT</text>
+
+    <text x="800" y="248" class="col-pk">connection_id</text>
+    <text x="1130" y="248" class="type" text-anchor="end">bigint · PK</text>
+    <line x1="795" y1="262" x2="1140" y2="262" class="row-line"/>
+
+    <text x="800" y="285" class="col">capture_id</text>
+    <text x="1130" y="285" class="type" text-anchor="end">int · FK → captures</text>
+    <line x1="795" y1="299" x2="1140" y2="299" class="row-line"/>
+
+    <text x="800" y="322" class="col">ts</text>
+    <text x="1130" y="322" class="type" text-anchor="end">timestamptz</text>
+    <line x1="795" y1="336" x2="1140" y2="336" class="row-line"/>
+
+    <text x="800" y="359" class="col">id_orig_h · id_resp_h</text>
+    <text x="1130" y="359" class="type" text-anchor="end">inet</text>
+    <line x1="795" y1="373" x2="1140" y2="373" class="row-line"/>
+
+    <text x="800" y="396" class="col">id_orig_p · id_resp_p</text>
+    <text x="1130" y="396" class="type" text-anchor="end">int</text>
+    <line x1="795" y1="410" x2="1140" y2="410" class="row-line"/>
+
+    <text x="800" y="433" class="col">proto · service · conn_state</text>
+    <text x="1130" y="433" class="type" text-anchor="end">varchar</text>
+    <line x1="795" y1="447" x2="1140" y2="447" class="row-line"/>
+
+    <text x="800" y="470" class="col">duration</text>
+    <text x="1130" y="470" class="type" text-anchor="end">double precision</text>
+    <line x1="795" y1="484" x2="1140" y2="484" class="row-line"/>
+
+    <text x="800" y="507" class="col">orig_bytes · resp_bytes</text>
+    <text x="1130" y="507" class="type" text-anchor="end">bigint</text>
+    <line x1="795" y1="521" x2="1140" y2="521" class="row-line"/>
+
+    <text x="800" y="544" class="col">orig_pkts · resp_pkts</text>
+    <text x="1130" y="544" class="type" text-anchor="end">bigint</text>
+    <line x1="795" y1="558" x2="1140" y2="558" class="row-line"/>
+
+    <text x="800" y="581" class="col">history · missed_bytes</text>
+    <text x="1130" y="581" class="type" text-anchor="end">varchar / bigint</text>
+    <line x1="795" y1="595" x2="1140" y2="595" class="row-line"/>
+
+    <text x="800" y="618" class="col">local_orig · local_resp</text>
+    <text x="1130" y="618" class="type" text-anchor="end">boolean</text>
+    <line x1="795" y1="632" x2="1140" y2="632" class="row-line"/>
+
+    <text x="800" y="655" class="col">label</text>
+    <text x="1130" y="655" class="type" text-anchor="end">varchar(64) · 7 values</text>
+    <line x1="795" y1="669" x2="1140" y2="669" class="row-line"/>
+
+    <text x="800" y="692" class="col">detailed_label</text>
+    <text x="1130" y="692" class="type" text-anchor="end">varchar(128)</text>
+  </g>
+
+  <!-- Footer -->
+  <line x1="60" y1="730" x2="1140" y2="730" stroke="#0a0a0a" stroke-width="1" opacity="0.3"/>
+  <text x="100" y="750" class="subheader">25,011,247 fact rows · partitioned by `label` in Hive (7 partitions, one per class).</text>
+</svg>

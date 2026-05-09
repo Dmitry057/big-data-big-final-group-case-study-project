@@ -76,7 +76,6 @@
         \textbf{Team:} & Team 30 \\
         \textbf{Repository:} & \href{https://github.com/Dmitry057/big-data-big-final-group-case-study-project}{Dmitry057/big-data-big-final-group-case-study-project} \\
         \textbf{Local path:} & \texttt{/home/team30/project30} \\
-        \textbf{Cluster host:} & \texttt{hadoop-01.uni.innopolis.ru} \\
     \end{tabular}
 
     \vspace{2cm}
@@ -92,44 +91,58 @@
     \today
 \end{titlepage}
 
-\tableofcontents
-\newpage
-
 % ====================== INTRODUCTION ======================
 \section{Introduction}
 
-\subsection{Business objectives}
+\subsection{Why we picked this problem}
 
-Internet-of-Things devices have become a vast and largely unmonitored attack
-surface. Compromised cameras, routers and digital video recorders are
-weaponised into botnets such as \emph{Mirai}, \emph{Hide-and-Seek} and
-\emph{Torii}, generating distributed denial-of-service traffic, port scans and
-command-and-control flows that share a network with legitimate device
-traffic. The economic and operational damage of these botnets motivates the
-deployment of automated network-traffic classification at the scale of an
-entire ISP or data centre.
+Internet-of-Things devices --- cheap routers, IP cameras, DVRs --- ship
+with default passwords and almost never get patched. Once compromised, they
+are pulled into botnets like \emph{Mirai}, \emph{Hide-and-Seek} and
+\emph{Torii}, and used to generate DDoS attacks, port scans and
+command-and-control traffic. The malicious flows look almost identical to
+the device's own normal traffic, and there are millions of them per hour on
+a real network. So we wanted a system that can sit in front of that
+firehose, look at every connection, and say: \emph{this one is fine, this
+one is part of a port scan, this one is a DDoS amplifier}.
 
-The business objective of this project is to demonstrate, on a representative
-real-world dataset, that:
+The IoT-23 dataset gave us labelled, real-world data to do exactly that ---
+roughly 25 million labelled connections from 12 IoT-device captures.
+Concretely, the goals of the project are:
+
 \begin{enumerate}[leftmargin=2em]
-    \item Raw Zeek connection logs from heterogeneous IoT captures can be
-    ingested, stored and queried at the scale of tens of millions of rows
-    using a standard Hadoop/Spark stack.
-    \item A small set of statistical insights derived from the data can
-    already separate benign traffic from several distinct attack behaviours.
-    \item A distributed multiclass classifier trained on the same warehouse
-    can flag malicious connections with very high accuracy, providing a
-    practical first-line filter for a security operations team.
+    \item Move 25M Zeek connection records from CSV into a Hive warehouse on
+    HDFS using the standard Hadoop tools.
+    \item Run a small set of HiveQL queries to understand what's actually in
+    the data --- how the classes split, which ports get attacked, what the
+    typical packet shapes look like.
+    \item Train a distributed classifier in Spark that tells the seven
+    classes apart, evaluate it on a held-out set, and put everything in a
+    Superset dashboard the rest of the team can read.
 \end{enumerate}
 
-The deliverable is a fully reproducible pipeline (a single \texttt{main.sh}
-that re-creates every artefact from the original CSV input), a public Apache
-Superset dashboard, and this report.
+The whole thing is wired into a single \texttt{main.sh} so the grader can
+re-run every stage from scratch.
+
+\subsection{What's in this document}
+
+\begin{itemize}[leftmargin=2em,itemsep=0.2em]
+    \item \textbf{Data Description} --- where the data comes from, how big
+    it is, and how the four pipeline stages connect.
+    \item \textbf{Data Preparation} --- the relational schema, how we
+    loaded it into Postgres and lifted it into Hive, and the storage-format
+    benchmark.
+    \item \textbf{Data Analysis} --- seven HiveQL insights, with the
+    chart and a short interpretation for each.
+    \item \textbf{ML Modeling} --- the Spark feature pipeline, the two
+    models we trained, and how they did on the test set.
+    \item \textbf{Data Presentation} --- what's on the Superset dashboard
+    and what it tells the viewer.
+    \item \textbf{Conclusion} --- what we shipped, what gave us trouble,
+    what we'd do differently, and the contribution table.
+\end{itemize}
 
 \subsection{Pipeline at a glance}
-
-The project is organised in four reproducible stages, executed end-to-end by
-\texttt{main.sh}:
 
 \begin{table}[H]
 \centering
@@ -150,17 +163,21 @@ The project is organised in four reproducible stages, executed end-to-end by
 % ====================== DATA DESCRIPTION ======================
 \section{Data Description}
 
-\subsection{Source}
+\subsection{Where the data comes from}
 
-The dataset is a hand-picked subset of the
-\textbf{Aposemat IoT-23} corpus (Stratosphere Lab, Czech Technical
-University), consisting of twelve labelled captures of real IoT-device
-network traffic recorded over several years. Each capture contains a Zeek
-\texttt{conn.log} file describing every observed network connection, with
-both binary (\texttt{Benign}/\texttt{Malicious}) and detailed multi-class
-labels for the malicious flows.
+We used a hand-picked subset of \textbf{Aposemat IoT-23}, a public dataset
+released by the Stratosphere Lab at Czech Technical University. It's a
+collection of network captures recorded on real IoT devices that were
+either left in their normal state or deliberately infected with a known
+malware family. Each capture comes as a Zeek \texttt{conn.log}, which is
+basically one row per network connection with both a binary label
+(\texttt{Benign}/\texttt{Malicious}) and a more specific label for the
+malicious ones (\texttt{DDoS}, \texttt{C\&C}, port-scan, etc.).
 
-\subsection{Data characteristics}
+We took 12 of these captures --- enough to cover several malware families
+without making the warehouse unmanageable on a 3-node student cluster.
+
+\subsection{How big is it}
 
 \begin{table}[H]
 \centering
@@ -185,34 +202,18 @@ The seven label values are: \texttt{Benign}, \texttt{Malicious},
 \texttt{Malicious C\&C}, \texttt{Malicious Attack},
 \texttt{Malicious FileDownload}.
 
-\subsection{Architecture of the data pipeline}
+\subsection{Architecture of the pipeline}
 
 \begin{figure}[H]
 \centering
-\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,frame=single,backgroundcolor=\color{white}]
-+----------------+     +----------------+     +-----------------+
-|   IoT-23 CSV   | --> |  PostgreSQL    | --> |   HDFS Parquet  |
-|  (12 captures) |     |  (Citus, t30)  |     |  (Sqoop import) |
-+----------------+     +----------------+     +-----------------+
-                                                       |
-                                                       v
-+-------------------------------+     +-----------------+
-|   Apache Superset Dashboard   | <-- |   Hive (Tez)    |
-|   (q1..q7 + evaluation.csv)   |     |   bucketed +    |
-+-------------------------------+     |   partitioned   |
-        ^                             +-----------------+
-        |                                      |
-        |                                      v
-        |              +-----------------+   +-----------------------+
-        +------------- |  evaluation.csv | < |  Spark ML on YARN     |
-                       +-----------------+   |  RF + LR + CV         |
-                                             +-----------------------+
-\end{lstlisting}
-\caption{End-to-end pipeline: from raw CSV captures through PostgreSQL and
-HDFS to a Hive warehouse, distributed Spark ML and a Superset dashboard.}
+\includegraphics[width=\textwidth]{img/pipeline.pdf}
+\caption{End-to-end architecture. CSVs go into Postgres; Sqoop lifts the
+typed tables onto HDFS as Parquet; Hive serves both the EDA queries and
+Spark; the trained model and the EDA result tables both feed a single
+Superset dashboard.}
 \end{figure}
 
-\subsection{Per-stage input / output}
+\subsection{Per-stage input and output}
 
 \begin{table}[H]
 \centering
@@ -246,50 +247,33 @@ Superset dashboard \\
 % ====================== DATA PREPARATION ======================
 \section{Data Preparation}
 
-\subsection{Relational model and ER diagram}
+\subsection{The relational model}
 
-The relational model in PostgreSQL consists of two tables connected by a
-single foreign key. \texttt{captures} is the dimensional reference for the
-twelve IoT-23 captures; \texttt{network\_connections} is the fact-style table
-that holds every parsed Zeek connection record.
+In Postgres we have two tables and one foreign key. \texttt{captures}
+holds metadata about each of the 12 IoT-23 captures (one row per capture).
+\texttt{network\_connections} holds every parsed Zeek connection
+($\sim$25M rows) and points back to its capture via \texttt{capture\_id}.
+That's the whole schema --- nothing fancy.
 
 \begin{figure}[H]
 \centering
-\begin{lstlisting}[basicstyle=\ttfamily\scriptsize,frame=single,backgroundcolor=\color{white}]
-+---------------------+              +-----------------------------------+
-|     captures        |              |       network_connections         |
-+---------------------+              +-----------------------------------+
-| capture_id   PK     |<-----------+ | connection_id     PK              |
-| capture_name        |       1   | | capture_id        FK -> captures  |
-| source_file UNIQUE  |       :   | | ts                timestamptz     |
-| created_at          |       N   | | uid               varchar(64)     |
-+---------------------+           | | id_orig_h         inet            |
-                                  | | id_orig_p         integer         |
-                                  | | id_resp_h         inet            |
-                                  | | id_resp_p         integer         |
-                                  | | proto, service, conn_state        |
-                                  | | duration          double          |
-                                  | | orig_bytes, resp_bytes   bigint   |
-                                  | | orig_pkts, resp_pkts     bigint   |
-                                  | | orig_ip_bytes, resp_ip_bytes      |
-                                  | | local_orig, local_resp   boolean  |
-                                  | | history, missed_bytes             |
-                                  | | label              varchar(64)    |
-                                  | | detailed_label     varchar(128)   |
-                                  +-+-----------------------------------+
-\end{lstlisting}
-\caption{ER diagram. \texttt{captures} (1) --- (N) \texttt{network\_connections}.}
+\includegraphics[width=\textwidth]{img/er.pdf}
+\caption{ER diagram. \texttt{captures} (1) --- (N) \texttt{network\_connections}.
+The crow's-foot on the right means \emph{many connections per capture}.}
 \end{figure}
 
-A temporary staging table \texttt{stg\_network\_connections} is used to
-ingest the raw text via PostgreSQL \texttt{COPY}, after which a typed
-transformation insert (regex-cleaned integers, \texttt{to\_timestamp},
-\texttt{inet} casts) populates the canonical table.
+To load the CSVs we go through a third table, \texttt{stg\_network\_connections},
+which is just a staging area where every column is plain text. We
+\texttt{COPY} the CSV in as-is, then a transformation \texttt{INSERT}
+cleans the cells (regex out the trailing \texttt{.0} on integers, swap
+sentinel \texttt{-} for \texttt{NULL}, cast to \texttt{inet} and
+\texttt{timestamptz}) and writes the result into the typed
+\texttt{network\_connections} table. Doing it in two steps means we never
+have to fight the Postgres CSV parser over IoT-23's quirks.
 
 \subsection{Sample records}
 
-A sample of two rows from \texttt{network\_connections} (truncated for
-width):
+A couple of rows from \texttt{network\_connections} (truncated for width):
 
 \begin{table}[H]
 \centering
@@ -305,22 +289,22 @@ cap & ts & id\_orig\_h & proto & conn\_state & orig\_bytes & resp\_bytes & orig\
 \caption{Two example records from the canonical \texttt{network\_connections} table.}
 \end{table}
 
-\subsection{Hive warehouse}
+\subsection{The Hive warehouse}
 
-The Hive database \texttt{team30\_projectdb} contains two physical layouts
-optimised for different access patterns:
+The Hive database is called \texttt{team30\_projectdb} and lives on top of
+the Sqoop output. We keep two physical layouts:
 
 \begin{itemize}[leftmargin=2em]
-    \item \texttt{captures\_bucketed} --- \texttt{CLUSTERED BY (capture\_id) INTO 4 BUCKETS},
-    Parquet, used as the join dimension table.
-    \item \texttt{network\_connections\_part} --- \texttt{PARTITIONED BY (label)},
-    Parquet. Because every analytical query and every ML feature scan filters
-    by label, partitioning at this column lets the Tez engine prune to a
-    fraction of the data on every access.
+    \item \texttt{captures\_bucketed} --- 12 rows, but
+    \texttt{CLUSTERED BY (capture\_id) INTO 4 BUCKETS} so it joins
+    cleanly against the fact table.
+    \item \texttt{network\_connections\_part} --- partitioned by
+    \texttt{label}. Almost every query we ever run filters by label, so
+    partitioning that way means Tez (and later Spark) can skip whole files
+    instead of scanning everything.
 \end{itemize}
 
-The warehouse is materialised by \texttt{sql/db.hql}, run on the Tez engine
-with dynamic partitioning enabled:
+The whole warehouse is rebuilt by \texttt{sql/db.hql}:
 
 \begin{lstlisting}
 SET hive.execution.engine=tez;
@@ -338,10 +322,11 @@ SELECT connection_id, capture_id, CAST(ts AS TIMESTAMP), uid,
 FROM network_connections_ext;
 \end{lstlisting}
 
-\subsection{Storage format benchmark}
+\subsection{Picking a storage format}
 
-As an additional Stage-1 deliverable, four format/codec combinations were
-benchmarked on the same dataset (three runs each):
+Before settling on Parquet + Snappy we ran a small benchmark: write the
+fact table four different ways, then time a full scan and one analytic
+query. Three runs each, results averaged:
 
 \begin{table}[H]
 \centering
@@ -356,20 +341,20 @@ avro    & snappy & 3 & 17.0 & 9.32 & 10.50 \\
 avro    & bzip2  & 3 & 19.0 & 8.36 & 11.01 \\
 \bottomrule
 \end{tabular}
-\caption{Storage format benchmark. \textbf{Parquet + Snappy} was selected
-for the production warehouse based on the best balance of write and scan
-times.}
+\caption{Storage format benchmark. Parquet beats Avro on scan time by a
+clear margin; Snappy and gzip are basically tied for Parquet, and Snappy
+costs less CPU. So we shipped Parquet + Snappy.}
 \end{table}
 
 % ====================== DATA ANALYSIS ======================
 \section{Data Analysis}
 
-The seven HiveQL queries in \texttt{sql/q1.hql} \dots \texttt{sql/q7.hql} run
-on Tez against \texttt{network\_connections\_part}. Each query materialises a
-Parquet result table and exports a CSV, which the dashboard charts directly.
-The seven insights below correspond to the seven dashboard sections.
+The seven HiveQL queries (\texttt{sql/q1.hql}\dots\texttt{sql/q7.hql}) each
+materialise a small \texttt{qN\_results} Parquet table and dump a CSV that
+the dashboard reads directly. The interpretations below are what we'd
+actually tell a teammate looking at the chart for the first time.
 
-\subsection{Insight 1 --- Label distribution}
+\subsection{Insight 1 --- How the labels split}
 
 \begin{figure}[H]
 \centering
@@ -396,30 +381,27 @@ Malicious FileDownload & 3 & 0.000\% \\
 \caption{Label distribution.}
 \end{table}
 
-\textbf{Interpretation.} The corpus is neither balanced nor degenerate.
-Four classes (Benign, Malicious, DDoS, port-scan) account for $>99.9\%$ of
-the data, yet three rare attack types remain in the mix. This is the key
-reason the modelling task is treated as multiclass rather than binary --- a
-binary model would silently absorb the rare classes into a single
-\texttt{Malicious} bucket and lose useful diagnostic signal.
+The dataset isn't balanced --- four classes hold 99.9\% of the rows ---
+but it's not flat either. The three rare classes (C\&C, Attack,
+FileDownload) are interesting precisely \emph{because} they're rare:
+collapsing them into a single ``malicious'' bucket would lose a real
+signal. That's why we kept the task multiclass instead of going binary.
 
-\subsection{Insight 2 --- Protocol mix per label}
+\subsection{Insight 2 --- Which protocol gets used}
 
 \begin{figure}[H]
 \centering
 \includegraphics[width=0.85\textwidth]{img/q2.jpg}
-\caption{Protocol usage per label. UDP is essentially benign DNS; almost
-every malicious connection is TCP.}
+\caption{Protocol usage per label. UDP shows up almost exclusively in
+benign DNS-style traffic; almost every malicious connection is TCP.}
 \end{figure}
 
-\textbf{Interpretation.} Apart from a tiny tail (34 UDP rows in the generic
-\texttt{Malicious} class, one UDP DDoS, etc.), every malicious connection in
-this corpus is TCP. ICMP appears only in benign baselines. The
-\texttt{proto} field alone is therefore not a useful discriminator inside
-the malicious population --- but it is a hard prior against UDP traffic
-being malicious.
+If you see a UDP flow on this network, it's almost certainly fine ---
+DNS, NTP, the usual. If you see a malicious flow, it's basically always
+TCP. So \texttt{proto} on its own won't separate one malicious class from
+another, but it's a strong prior against ``UDP = bad''.
 
-\subsection{Insight 3 --- Average bytes per connection}
+\subsection{Insight 3 --- How big the connections are}
 
 \begin{figure}[H]
 \centering
@@ -446,16 +428,15 @@ Malicious FileDownload & 83.33 & 64{,}982.00 & 65{,}065.33 \\
 \caption{Average per-connection byte counts by label.}
 \end{table}
 
-\textbf{Interpretation.} DDoS averages $\sim 3.7 \times 10^{8}$ originator
-bytes per flow --- six orders of magnitude over benign traffic --- because
-the per-flow payload is dominated by amplified bursts. Port-scan and
-generic Malicious carry less than 1 byte per connection on average,
-reflecting a flood of SYN-only probes. Benign traffic has a small originator
-but a non-trivial responder (the IoT device receives small messages and gets
-non-trivial server replies). FileDownload, though only 3 rows, shows the
-expected asymmetric pattern with a heavy responder side.
+DDoS jumps out immediately --- $3.7 \times 10^8$ originator bytes per
+flow on average, basically six orders of magnitude over benign. That's the
+amplification payload. At the other end, port scans and the generic
+\texttt{Malicious} class barely move a byte per connection: they're
+basically just SYN probes. C\&C looks more like a normal long-lived
+session (a few KB on the responder side), and FileDownload (only 3 rows)
+shows the asymmetric pattern you'd expect.
 
-\subsection{Insight 4 --- Per-capture maliciousness ratio}
+\subsection{Insight 4 --- Each capture is one behaviour}
 
 \begin{figure}[H]
 \centering
@@ -463,23 +444,27 @@ expected asymmetric pattern with a heavy responder side.
 \caption{Total flows and malicious ratio per capture.}
 \end{figure}
 
-\textbf{Interpretation.} Capture-level distribution is strongly bimodal:
-8 of the 12 captures are $>79\%$ malicious; 4 captures are $<11\%$
-malicious. There is no middle ground. This means each PCAP was deliberately
-recorded around a single behaviour. The practical consequence for modelling
-is that captures should be treated as \emph{strata}: a row-level random
-split (which we use) does not guarantee unseen captures in the test set, and
-a stricter group-aware split would be the natural next iteration.
+The captures don't sit anywhere in the middle: 8 of them are over 79\%
+malicious, 4 of them are under 11\%. There's no ``slightly suspicious''
+capture. That makes sense --- each capture was recorded around a single
+infection, so basically the whole capture is either compromised traffic or
+a clean baseline.
 
-\subsection{Insight 5 --- Connection state per label}
+The practical consequence: if we ever do a real evaluation, we should
+split by capture, not by row. Random row-level splitting (which is what
+we used for this report) leaks the same capture into both train and test.
+We flagged it in the conclusion.
 
-\textbf{Interpretation.} A SYN-only flow (\texttt{conn\_state = S0}) is the
-universal signature in this dataset. Even benign IoT traffic is dominated
-by devices repeatedly trying to reach a server that does not reply. DDoS
-flows split between \texttt{OTH} (no SYN seen, mid-flow capture) and
-\texttt{RSTOS0} (the originator gets a RST after SYN). C\&C flows show a
-characteristic \texttt{S3} fingerprint (originator finishes, responder still
-sending), consistent with long-lived control sessions.
+\subsection{Insight 5 --- What the connection state looks like}
+
+Almost everything in this dataset is \texttt{S0} --- a SYN that never gets
+answered. Even the benign traffic is dominated by IoT devices repeatedly
+trying to reach a server that's not there. DDoS is the exception: it
+splits between \texttt{OTH} (we joined the flow mid-stream) and
+\texttt{RSTOS0} (the originator gets a RST after the SYN). C\&C shows the
+classic \texttt{S3} fingerprint --- the originator finishes but the
+responder is still talking, which is what a long-running control channel
+looks like.
 
 \begin{table}[H]
 \centering
@@ -498,7 +483,7 @@ Malicious PartOfAHorizontalPortScan & S0 & 3{,}386{,}241 & 100\% \\
 \caption{Dominant TCP connection state per label.}
 \end{table}
 
-\subsection{Insight 6 --- Top targeted ports}
+\subsection{Insight 6 --- Where the attacks are aimed}
 
 \begin{figure}[H]
 \centering
@@ -506,12 +491,13 @@ Malicious PartOfAHorizontalPortScan & S0 & 3{,}386{,}241 & 100\% \\
 \caption{Top targeted destination ports per non-Benign label.}
 \end{figure}
 
-\textbf{Interpretation.} Port 23 (Telnet) is the single most attacked
-destination: 4M generic Malicious flows and 3.4M port-scan flows target it.
-This is the classic Mirai-family entry point on unpatched IoT devices.
-DDoS is bimodal between the high port \texttt{62336} (a Mirai-style
-echo/control port) and HTTP \texttt{80}. C\&C uses IRC port \texttt{6667}
-heavily.
+Telnet (port 23) is, by a huge margin, the most attacked destination --- 4M
+generic Malicious flows and another 3.4M port-scan flows hit it. That's
+the Mirai pattern: scan the internet for IoT devices with default Telnet
+credentials, log in, install yourself, repeat. DDoS prefers the high port
+\texttt{62336} (a Mirai control/echo port) and HTTP \texttt{80}. C\&C
+mostly uses IRC port \texttt{6667}, which is also a Mirai-family
+classic.
 
 \begin{table}[H]
 \centering
@@ -532,7 +518,7 @@ Malicious C\&C & 6667 & 6{,}706 \\
 \caption{Top 7 targeted destination ports across non-Benign labels.}
 \end{table}
 
-\subsection{Insight 7 --- Average packets per connection}
+\subsection{Insight 7 --- How many packets per connection}
 
 \begin{figure}[H]
 \centering
@@ -540,54 +526,52 @@ Malicious C\&C & 6667 & 6{,}706 \\
 \caption{Average originator and responder packets per connection by label.}
 \end{figure}
 
-\textbf{Interpretation.} Long-lived C\&C sessions stand out sharply:
-$\sim$495 originator packets per session, with a real (8-packet) response.
-This is very different from one-shot port-scan or flood traffic, where the
-responder side is essentially zero. The combination of \texttt{orig\_pkts},
-\texttt{resp\_pkts} and \texttt{conn\_state} carries most of the
-discriminative signal that the Random Forest later picks up.
+The interesting row here is C\&C: about 495 packets out per session, with
+a real (8-packet) response. That's a genuine long-running conversation,
+very different from the one-shot SYN of port scans (where the responder
+is essentially zero). The combination of \texttt{orig\_pkts},
+\texttt{resp\_pkts} and \texttt{conn\_state} ends up doing most of the
+work for the Random Forest later.
 
 % ====================== ML MODELING ======================
 \section{ML Modeling}
 
-\subsection{Feature extraction and preprocessing}
+\subsection{Building the feature pipeline}
 
-\texttt{scripts/ml\_data\_preparation.py} builds a single PySpark
-\texttt{Pipeline} over the Hive partition. The pipeline is fitted only on
-the training fold to prevent leakage:
+\texttt{scripts/ml\_data\_preparation.py} fits a single PySpark
+\texttt{Pipeline} on the training fold (so the encoders never see the
+test rows). Five steps:
 
 \begin{enumerate}[leftmargin=2em]
-    \item \textbf{Cyclical time encoding.} A custom
-    \texttt{CyclicalTimeTransformer} extracts year, month, day, hour,
-    minute, second from \texttt{ts} and produces sine/cosine pairs for the
-    five periodic components. This prevents the model from inferring a
-    spurious linear ordering across time wrap-arounds.
-    \item \textbf{Imputation.} \texttt{tunnel\_parents} is dropped
-    (constant null). Strings are filled with \texttt{"unknown"}; numeric
-    nulls become 0; boolean nulls become \texttt{False}.
-    \item \textbf{Categorical encoding.}
-    \texttt{StringIndexer + OneHotEncoder} for \texttt{proto},
-    \texttt{service}, \texttt{conn\_state}, \texttt{history}.
-    \item \textbf{Feature selection.} A \texttt{ChiSqSelector(fpr=0.1)}
-    over the categorical block keeps only label-correlated dummies.
-    \item \textbf{Assembly + scaling.} \texttt{VectorAssembler} concatenates
-    numeric features, time encodings and the ChiSq-selected categoricals;
-    \texttt{StandardScaler(withMean=False, withStd=True)} produces the final
-    \texttt{features} column.
+    \item \textbf{Cyclical time encoding.} A small custom transformer pulls
+    year, month, day, hour, minute, second out of \texttt{ts} and adds
+    sin/cos for the periodic ones. Without this the model would learn that
+    \texttt{hour=23} and \texttt{hour=0} are far apart.
+    \item \textbf{Imputation.} Drop \texttt{tunnel\_parents} (always null);
+    fill string nulls with \texttt{"unknown"}, numeric nulls with 0,
+    booleans with \texttt{False}.
+    \item \textbf{Categorical encoding.} \texttt{StringIndexer +
+    OneHotEncoder} for \texttt{proto}, \texttt{service}, \texttt{conn\_state},
+    \texttt{history}.
+    \item \textbf{Feature selection.} A \texttt{ChiSqSelector(fpr=0.1)} on
+    the categorical block keeps only the dummies that actually correlate
+    with the label.
+    \item \textbf{Assemble + scale.} \texttt{VectorAssembler} concatenates
+    everything; \texttt{StandardScaler(withMean=False, withStd=True)} gives
+    us the final \texttt{features} column.
 \end{enumerate}
 
-The label column is handled by a \texttt{StringIndexer} fitted on the same
-training fold. The split is $60\%/40\%$, seed 42, and the train/test
-DataFrames are persisted as Parquet on HDFS so that training and evaluation
-read from a stable on-disk artefact.
+The label gets its own \texttt{StringIndexer}. We split 60/40 with
+seed 42, and write the resulting train/test out to HDFS as Parquet so
+training and evaluation read from the same on-disk artefact.
 
-\subsection{Models and hyperparameter tuning}
+\subsection{Two models, one cross-validator}
 
-Both models are wrapped in a Spark
-\texttt{CrossValidator(numFolds=2, parallelism=3)} optimising the multiclass
-\texttt{f1} metric. Each \texttt{spark-submit} runs on YARN with 6 executors
-$\times$ 3 cores $\times$ 6 GB. The training set is
-\texttt{persist(MEMORY\_AND\_DISK)} so that CV folds can amortise the I/O.
+We trained two models, both wrapped in \texttt{CrossValidator(numFolds=2,
+parallelism=3)} optimising multiclass \texttt{f1}. Each
+\texttt{spark-submit} ran on YARN with 6 executors $\times$ 3 cores
+$\times$ 6 GB. The training set is \texttt{persist(MEMORY\_AND\_DISK)}'d
+so the CV folds don't repeat the read.
 
 \begin{table}[H]
 \centering
@@ -605,15 +589,15 @@ Logistic Regression & regParam $\in \{0.01, 0.1\}$           & regParam = 0.01 \
                     & maxIter = 50, family = multinomial     &  \\
 \bottomrule
 \end{tabular}
-\caption{Hyperparameter grid and the values selected by 2-fold
-cross-validation on \texttt{f1}.}
+\caption{Hyperparameter grid and the values picked by 2-fold cross-validation
+on the multiclass \texttt{f1} metric.}
 \end{table}
 
-\subsection{Evaluation}
+\subsection{How they did}
 
 The evaluation script (\texttt{scripts/ml\_evaluation.py}) reads the
-HDFS-persisted predictions and computes four standard multiclass metrics
-using PySpark \texttt{MulticlassClassificationEvaluator}:
+HDFS-persisted predictions and computes four metrics with PySpark's
+\texttt{MulticlassClassificationEvaluator}:
 
 \begin{table}[H]
 \centering
@@ -629,133 +613,126 @@ Logistic Regression        & 0.3510 & 0.3395 & 0.3510 & 0.1824 \\
 \caption{Held-out evaluation on $\sim$10M test rows.}
 \end{table}
 
-\textbf{Interpretation.} The Random Forest reaches $F_1 = 0.998$ across
-seven classes --- a $5.5\times$ lift over the multinomial linear baseline at
-the same feature set. The decision boundary on
-\texttt{conn\_state} + \texttt{id\_resp\_p} + \texttt{orig\_pkts} is sharply
-non-linear after one-hot expansion, which is exactly where bagging and
-shallow tree splits dominate a globally-linear model. Predictions are
-persisted to HDFS as CSV so that the evaluator is decoupled from training
-and can be re-run without retraining.
+The Random Forest hits $F_1 = 0.998$ across all seven classes --- about
+$5.5\times$ better than the linear baseline on the same features. That
+gap isn't surprising: the decision boundary on
+\texttt{conn\_state} + \texttt{id\_resp\_p} + \texttt{orig\_pkts} is
+sharply non-linear after one-hot encoding, and a multinomial linear model
+just can't represent it. We could spend more time tuning LR, but that
+would be polishing a wrong tool.
+
+We persist the predictions to HDFS as CSV before evaluating, which means
+we can re-run the evaluator without re-running the trainer --- useful if
+we want to add a new metric later.
 
 % ====================== DATA PRESENTATION ======================
 \section{Data Presentation}
 
-\subsection{Dashboard description}
+\subsection{The dashboard}
 
-The defence-day dashboard is built in \textbf{Apache Superset}, connected to
-the cluster's Hive 2 endpoint
-(\texttt{jdbc:hive2://hadoop-03.uni.innopolis.ru:10001}). It is a single
-public dashboard, refreshed on demand against the result tables produced by
-Stages 2 and 3. Six logical sections were composed:
+The defence-day dashboard lives in \textbf{Apache Superset} and connects
+to the cluster's HiveServer2 endpoint at
+\texttt{jdbc:hive2://hadoop-03.uni.innopolis.ru:10001}. It's one public
+dashboard, refreshed on demand against the same result tables that
+Stages 2 and 3 produced. Six sections:
 
 \begin{description}[leftmargin=2em]
-    \item[A. Data characteristics.] Headline metrics --- 25M rows, 23
-    features, 7 classes, 12 captures --- plus a one-glance snapshot of the
-    pipeline's scope.
-    \item[B. Class balance (Insight 1).] Donut and percentage list of the
-    seven labels, sourced from \texttt{q1\_results}.
+    \item[A. Data characteristics.] Headline numbers: 25M rows, 23
+    features, 7 classes, 12 captures. The first thing a viewer sees.
+    \item[B. Class balance (Insight 1).] Donut and percentage list,
+    sourced from \texttt{q1\_results}.
     \item[C. Behaviour signatures (Insights 2, 3, 5, 7).] Stacked-bar
-    protocol mix, average bytes/packets per label, and the dominant
-    connection-state per label.
-    \item[D. Top targets (Insight 6).] Port histograms per non-Benign label;
-    the bar for port 23 dominates and is annotated as the Mirai entry
-    point.
-    \item[E. Capture strata (Insight 4).] Per-capture maliciousness ratio,
-    rendered as a bar chart that exposes the bimodal capture-level
-    distribution.
-    \item[F. Model performance.] Comparison panel rendered from
-    \texttt{evaluation.csv}, showing accuracy / precision / recall / F1 for
-    both models side by side.
+    protocol mix, average bytes/packets per label, dominant
+    \texttt{conn\_state} per label.
+    \item[D. Top targets (Insight 6).] Port histograms per non-Benign
+    label, with a callout on port 23.
+    \item[E. Capture strata (Insight 4).] Per-capture maliciousness ratio
+    bar chart --- the bimodal capture-level pattern is hard to miss.
+    \item[F. Model performance.] Side-by-side comparison of the two
+    models, sourced from \texttt{evaluation.csv}.
 \end{description}
 
-\subsection{Findings}
+\subsection{What the dashboard tells you}
 
-The dashboard surfaces three findings that are not obvious from the raw
-data:
+Three things stand out once everything is in front of you:
+
 \begin{enumerate}[leftmargin=2em]
-    \item \textbf{Class skew is non-degenerate.} Four classes carry the
-    bulk of the data and three rare classes carry diagnostic signal.
-    Treating the task as multiclass (and not binary) preserves that
-    diagnostic value.
+    \item \textbf{The class skew is interesting, not degenerate.} Four
+    classes carry the bulk of the data and three rare classes carry real
+    diagnostic signal. Treating the task as multiclass keeps that signal
+    visible.
     \item \textbf{The attack surface is concentrated.} Port 23 alone
-    accounts for more than 7M malicious flows. A single network policy that
-    rate-limits inbound Telnet on the IoT subnet would have cut the bulk
-    of the malicious volume in this corpus.
-    \item \textbf{A simple model is enough --- if non-linear.} A
-    distributed Random Forest with only four hyperparameter combinations
-    explored reaches $F_1 = 0.998$ at this feature set. The same problem is
-    near-unsolvable for a multinomial linear model, which is the strongest
-    practical argument for keeping a tree ensemble in the production
-    classifier.
+    accounts for more than 7M malicious flows. Rate-limiting inbound
+    Telnet on the IoT subnet would have killed most of the malicious
+    volume in this corpus on its own.
+    \item \textbf{The right model wins by a lot.} With four hyperparameter
+    combinations and a 2-fold CV, the Random Forest reaches
+    $F_1 = 0.998$. The same problem is essentially unsolvable for a
+    multinomial linear model. So a tree ensemble is the right starting
+    point for any production version of this.
 \end{enumerate}
 
 % ====================== CONCLUSION ======================
 \section{Conclusion}
 
-\subsection{Summary}
+\subsection{What we shipped}
 
-This project delivered a fully reproducible end-to-end big-data pipeline
-that ingests 25M Zeek connection records from the Aposemat IoT-23 corpus,
-stores them in a partitioned Hive warehouse on HDFS, runs seven HiveQL EDA
-queries on Tez, trains and cross-validates two distributed Spark ML models
-on YARN, and presents the results in a public Apache Superset dashboard.
-The Random Forest model achieves $F_1 = 0.998$ across seven classes on a
-held-out test set of approximately 10M rows. Every artefact in the
-\texttt{output/} folder is regenerable from a single \texttt{main.sh}.
+A reproducible Hadoop pipeline that takes 25M Zeek connection records,
+loads them into a Hive warehouse on HDFS, runs seven HiveQL queries on
+Tez to surface the structure of the data, trains two Spark ML models with
+cross-validation on YARN, and exposes everything in a public Apache
+Superset dashboard. Random Forest reaches $F_1 = 0.998$ on a held-out
+test set of about 10M rows. Every artefact in \texttt{output/} can be
+regenerated by running \texttt{main.sh}.
 
-\subsection{Reflections on own work}
+\subsection{How we worked}
 
-The team's role split worked well: the data engineer owned ingestion and
-the Hive warehouse layout, the ML specialist owned the Spark pipeline and
-hyperparameter grid, the data scientist owned EDA and dashboard
-storytelling, and the tester/technical writer documented every stage and
-ran the reproducibility checks. The reproducibility contract --- ``one
-\texttt{main.sh}, every stage idempotent'' --- was particularly valuable
-because it forced us to clean up intermediate state at the start of each
-script rather than relying on a previous run's artefacts.
+The role split worked well. Ivan owned ingestion and the Hive layout;
+Kirill owned the Spark feature pipeline and the model grid; Nikita owned
+EDA and the dashboard story; Dmitry owned documentation and ran the
+re-run checks. The ``one \texttt{main.sh}, every stage idempotent'' rule
+was probably the single most useful constraint --- it forced us to
+clean up before doing anything, instead of relying on whatever was left
+from the last run.
 
-\subsection{Challenges and difficulties}
+\subsection{What gave us trouble}
 
 \begin{itemize}[leftmargin=2em]
-    \item \textbf{Type coercion at ingestion.} The raw Zeek CSVs use
-    sentinel \texttt{-} values for missing fields and float-formatted
-    integers (\texttt{1234.0}). The PostgreSQL transformation insert had to
-    handle both via \texttt{NULLIF} + \texttt{REGEXP\_REPLACE} before
-    casting --- a single missed regex caused a full reload.
-    \item \textbf{Hive partitioning vs.\ skew.} Label-partitioning
-    \texttt{network\_connections\_part} produced one tiny partition
-    (\texttt{Malicious FileDownload}, 3 rows) and four very large ones.
-    This is acceptable for analytical scans but costs us shuffle balance
-    in Spark; the workaround was \texttt{repartition(18)} after reading.
-    \item \textbf{LR convergence.} The multinomial Logistic Regression
-    converged to a near-trivial solution under the given feature set ---
-    not a bug, but a structural mismatch with the non-linear decision
-    boundary. Reporting this honestly was important rather than tuning it
-    further.
-    \item \textbf{Cluster network access.} Pushing artefacts from
-    \texttt{hadoop-01} to GitHub required a small workaround for DNS
-    resolution of \texttt{github.com}, solved by an explicit
+    \item \textbf{Loading the CSVs.} The raw Zeek files use \texttt{-} for
+    missing values and write integers as floats (\texttt{1234.0}). The
+    Postgres transformation insert had to handle both with
+    \texttt{NULLIF} + \texttt{REGEXP\_REPLACE} before casting. One
+    missed regex meant a full reload.
+    \item \textbf{Partition skew in Hive.} Partitioning by \texttt{label}
+    is great for queries but makes one tiny partition (FileDownload,
+    3 rows) and four huge ones. Fine for analytical scans, painful for
+    Spark shuffles --- we worked around it with
+    \texttt{repartition(18)} after the read.
+    \item \textbf{Logistic Regression went sideways.} The multinomial LR
+    barely beat majority-class on this feature set. We chose to report it
+    honestly rather than spend more cycles tuning a model that was
+    structurally the wrong fit.
+    \item \textbf{Pushing from the cluster.} The cluster's DNS doesn't
+    resolve \texttt{github.com}, so pushing artefacts up needed a fixed
     \texttt{HostName} entry in \texttt{\textasciitilde/.ssh/config}.
 \end{itemize}
 
-\subsection{Recommendations}
+\subsection{What we'd do next}
 
 \begin{enumerate}[leftmargin=2em]
-    \item Replace the row-level random split with a group-aware split per
-    \texttt{capture\_id} (Insight 4 motivates this directly).
-    \item Add Gradient-Boosted Trees to the model grid; they should
-    out-perform Random Forest on this kind of categorical-heavy feature
-    space.
-    \item Stream a copy of the same Hive partitions into Spark Structured
-    Streaming and serve the trained Random Forest as a near-real-time
-    classifier.
-    \item Extend the dashboard with per-class precision/recall and a
-    confusion-matrix heatmap --- the current panel summarises overall
-    metrics only.
+    \item Split by \texttt{capture\_id} instead of by row. Insight 4
+    basically tells us we have to.
+    \item Add Gradient-Boosted Trees to the grid. They should beat the
+    Random Forest on a feature space that's mostly one-hot dummies.
+    \item Wire the trained Random Forest into Spark Structured Streaming
+    over the same Hive partitions, so it can score new traffic in near
+    real time.
+    \item Add per-class precision/recall and a confusion-matrix heatmap
+    to the dashboard. Right now the model panel only shows aggregate
+    metrics, which hides where the rare classes go wrong.
 \end{enumerate}
 
-\subsection{Table of contributions}
+\subsection{Who did what}
 
 \begin{table}[H]
 \centering
@@ -795,8 +772,7 @@ members.}
 \textit{Repository:}
 \href{https://github.com/Dmitry057/big-data-big-final-group-case-study-project}%
 {github.com/Dmitry057/big-data-big-final-group-case-study-project} \\
-\textit{Local path on cluster:} \texttt{/home/team30/project30}
-(host \texttt{hadoop-01.uni.innopolis.ru}, user \texttt{team30})
+\textit{Local path on cluster:} \texttt{/home/team30/project30} (user \texttt{team30})
 \end{center}
 
 \end{document}

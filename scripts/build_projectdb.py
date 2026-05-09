@@ -5,6 +5,7 @@
 import re
 from pathlib import Path
 from pprint import pprint
+from typing import List, Tuple
 
 import psycopg2
 
@@ -33,7 +34,7 @@ SET capture_name = EXCLUDED.capture_name,
     source_file = EXCLUDED.source_file;
 """
 
-TRANSFORM_AND_INSERT_SQL = """
+TRANSFORM_AND_INSERT_SQL = r"""
 INSERT INTO network_connections (
     capture_id,
     ts,
@@ -112,7 +113,7 @@ def load_sql(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def list_dataset_files() -> list[Path]:
+def list_dataset_files() -> List[Path]:
     """Return sorted dataset files from the repository data directory."""
 
     csv_files = sorted(DATA_DIR.glob("*.csv"))
@@ -121,7 +122,7 @@ def list_dataset_files() -> list[Path]:
     return csv_files
 
 
-def parse_capture_metadata(csv_path: Path) -> tuple[int, str]:
+def parse_capture_metadata(csv_path: Path) -> Tuple[int, str]:
     """Extract capture id and capture name from the dataset filename."""
 
     match = CAPTURE_FILE_PATTERN.match(csv_path.name)
@@ -178,7 +179,10 @@ def main() -> None:
             print(f"Loading {csv_file.name} into capture {capture_id}")
 
             with connection.cursor() as cursor:
-                cursor.execute(INSERT_CAPTURE_SQL, (capture_id, capture_name, csv_file.name))
+                cursor.execute(
+                    INSERT_CAPTURE_SQL,
+                    (capture_id, capture_name, csv_file.name),
+                )
                 cursor.execute("TRUNCATE TABLE stg_network_connections")
 
                 with csv_file.open("r", encoding="utf-8", newline="") as source_file:
