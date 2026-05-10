@@ -70,3 +70,4 @@ export_hive_table_to_csv stage4_feature_extraction_summary output/stage4_feature
 export_hive_table_to_csv stage4_hyperparameter_results output/stage4_hyperparameter_results.csv
 
 echo "Stage 4 data preparation finished"
+ 
