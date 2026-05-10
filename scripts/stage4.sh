@@ -64,6 +64,7 @@ run_hive_file sql/stage4_tables.hql output/stage4_hive_tables.txt
 
 echo "Exporting compact Stage 4 dashboard datasets"
 export_hive_table_to_csv stage4_model_evaluation output/stage4_model_evaluation.csv
+export_hive_table_to_csv stage4_label_mapping output/stage4_label_mapping.csv
 export_hive_table_to_csv stage4_prediction_counts output/stage4_prediction_counts.csv
 export_hive_table_to_csv stage4_prediction_distribution output/stage4_prediction_distribution.csv
 export_hive_table_to_csv stage4_feature_extraction_summary output/stage4_feature_extraction_summary.csv

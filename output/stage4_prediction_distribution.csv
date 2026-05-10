@@ -1,11 +1,11 @@
-model,prediction,row_count
-Logistic Regression,0.0,3471781
-Logistic Regression,1.0,2837281
-Logistic Regression,2.0,2339483
-Logistic Regression,3.0,1355668
-Random Forest,0.0,3502605
-Random Forest,1.0,2835258
-Random Forest,2.0,2309861
-Random Forest,3.0,1354796
-Random Forest,4.0,342
-Random Forest,5.0,1351
+model,prediction,prediction_name,row_count
+Logistic Regression,0.0,Benign,3471781
+Logistic Regression,1.0,Malicious,2837281
+Logistic Regression,2.0,Malicious DDoS,2339483
+Logistic Regression,3.0,Malicious PartOfAHorizontalPortScan,1355668
+Random Forest,0.0,Benign,3502605
+Random Forest,1.0,Malicious,2835258
+Random Forest,2.0,Malicious DDoS,2309861
+Random Forest,3.0,Malicious PartOfAHorizontalPortScan,1354796
+Random Forest,4.0,Malicious C&C,342
+Random Forest,5.0,Malicious Attack,1351

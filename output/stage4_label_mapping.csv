@@ -1,0 +1,8 @@
+label,label_name
+0,Benign
+1,Malicious
+2,Malicious DDoS
+3,Malicious PartOfAHorizontalPortScan
+4,Malicious C&C
+5,Malicious Attack
+6,Malicious FileDownload

@@ -53,25 +53,55 @@ SELECT
     f1_score
 FROM stage3_model_evaluation_ext;
 
+DROP TABLE IF EXISTS stage4_label_mapping;
+CREATE TABLE stage4_label_mapping
+STORED AS PARQUET
+AS
+SELECT 0.0 AS label, 'Benign' AS label_name
+UNION ALL
+SELECT 1.0 AS label, 'Malicious' AS label_name
+UNION ALL
+SELECT 2.0 AS label, 'Malicious DDoS' AS label_name
+UNION ALL
+SELECT 3.0 AS label, 'Malicious PartOfAHorizontalPortScan' AS label_name
+UNION ALL
+SELECT 4.0 AS label, 'Malicious C&C' AS label_name
+UNION ALL
+SELECT 5.0 AS label, 'Malicious Attack' AS label_name
+UNION ALL
+SELECT 6.0 AS label, 'Malicious FileDownload' AS label_name;
+
 DROP TABLE IF EXISTS stage4_prediction_counts;
 CREATE TABLE stage4_prediction_counts
 STORED AS PARQUET
 AS
 SELECT
     'Random Forest' AS model,
-    label,
-    prediction,
+    p.label,
+    actual.label_name AS label_name,
+    p.prediction,
+    predicted.label_name AS prediction_name,
     COUNT(*) AS row_count
-FROM stage3_model1_predictions_ext
-GROUP BY label, prediction
+FROM stage3_model1_predictions_ext p
+INNER JOIN stage4_label_mapping actual
+    ON p.label = actual.label
+INNER JOIN stage4_label_mapping predicted
+    ON p.prediction = predicted.label
+GROUP BY p.label, actual.label_name, p.prediction, predicted.label_name
 UNION ALL
 SELECT
     'Logistic Regression' AS model,
-    label,
-    prediction,
+    p.label,
+    actual.label_name AS label_name,
+    p.prediction,
+    predicted.label_name AS prediction_name,
     COUNT(*) AS row_count
-FROM stage3_model2_predictions_ext
-GROUP BY label, prediction;
+FROM stage3_model2_predictions_ext p
+INNER JOIN stage4_label_mapping actual
+    ON p.label = actual.label
+INNER JOIN stage4_label_mapping predicted
+    ON p.prediction = predicted.label
+GROUP BY p.label, actual.label_name, p.prediction, predicted.label_name;
 
 DROP TABLE IF EXISTS stage4_prediction_distribution;
 CREATE TABLE stage4_prediction_distribution
@@ -80,9 +110,10 @@ AS
 SELECT
     model,
     prediction,
+    prediction_name,
     SUM(row_count) AS row_count
 FROM stage4_prediction_counts
-GROUP BY model, prediction;
+GROUP BY model, prediction, prediction_name;
 
 DROP TABLE IF EXISTS stage4_feature_extraction_summary;
 CREATE TABLE stage4_feature_extraction_summary
